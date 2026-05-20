@@ -50,7 +50,28 @@ public class IntCletTests
         IntClet clet = new ();
 
         Assert.Single (clet.Options);
-        Assert.Equal ("step", clet.Options [0].Name);
-        Assert.False (clet.Options [0].Required);
+        Assert.Equal ("step", clet.Options[0].Name);
+        Assert.False (clet.Options[0].Required);
+    }
+
+    [Fact]
+    public void AcceptsPositionalArgs_IsFalse ()
+    {
+        IClet clet = new IntClet ();
+
+        Assert.False (clet.AcceptsPositionalArgs);
+    }
+
+    [Theory]
+    [InlineData ("42", true)]
+    [InlineData ("-7", true)]
+    [InlineData ("abc", false)]
+    [InlineData ("3.14", false)]
+    public void TryValidateInitial_ValidatesIntString (string initial, bool expected)
+    {
+        IntClet clet = new ();
+        CletRunOptions options = new ();
+
+        Assert.Equal (expected, clet.TryValidateInitial (initial, options));
     }
 }

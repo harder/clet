@@ -20,6 +20,8 @@ internal static class MarkdownHelpRenderer
     /// </summary>
     public static void RenderToAnsi (string markdown, TextWriter output)
     {
+        // Sanitize input markdown to remove terminal escape sequences from untrusted content
+        markdown = TerminalEscapeSanitizer.Sanitize (markdown)!;
         // The ANSI driver emits Unicode box-drawing glyphs (U+2500 range) plus the
         // ASCII-art logo. On Windows, Console.OutputEncoding defaults to the OEM code
         // page; Windows Terminal then interprets those bytes as broken UTF-8 and
@@ -108,7 +110,13 @@ internal static class MarkdownHelpRenderer
 
             app.Driver?.ClearContents ();
             markdownView.Draw ();
-            target.WriteLine (app.Driver?.ToAnsi ());
+
+            string rendered = app.Driver?.ToAnsi () ?? string.Empty;
+
+            // Final pass: strip any user-payload escape sequences that survived through TG rendering
+            // while preserving the renderer's own SGR sequences.
+            rendered = TerminalEscapeSanitizer.SanitizeRenderedOutput (rendered);
+            target.WriteLine (rendered);
         }
         finally
         {
@@ -181,6 +189,15 @@ internal static class MarkdownHelpRenderer
             }
         }
 
+        // Append embedded help content (examples, notes) if available
+        string? extra = ReadEmbeddedHelp ($"{clet.PrimaryAlias}.md");
+
+        if (extra is not null)
+        {
+            sb.AppendLine ();
+            sb.Append (extra);
+        }
+
         return sb.ToString ();
     }
 
@@ -192,8 +209,8 @@ internal static class MarkdownHelpRenderer
         StringBuilder sb = new ();
         sb.AppendLine ("## Available Clets");
         sb.AppendLine ();
-        sb.AppendLine ("| Alias | Description |");
-        sb.AppendLine ("|-------|-------------|");
+        sb.AppendLine ("| Alias | Description | Options |");
+        sb.AppendLine ("|-------|-------------|---------|");
 
         foreach (IClet clet in registry.All)
         {
@@ -201,25 +218,36 @@ internal static class MarkdownHelpRenderer
                 ? $"`{clet.PrimaryAlias}`"
                 : string.Join (", ", clet.Aliases.Select (a => $"`{a}`"));
 
-            sb.AppendLine ($"| {aliases} | {clet.Description} |");
+            string options = BuildOptionsColumn (clet);
+
+            sb.AppendLine ($"| {aliases} | {clet.Description} | {options} |");
         }
+
+        // Links don't work inside table cells (gui-cs/Terminal.Gui#5227), so add a
+        // clickable list after the table for help navigation.
+        sb.AppendLine ();
+        sb.Append ("Click for details: ");
+        sb.AppendLine (string.Join (", ", registry.All.Select (c => $"[{c.PrimaryAlias}](clet:help:{c.PrimaryAlias})")));
 
         return sb.ToString ();
     }
 
-    private static string ResultTypeName (Type type)
+    private static string BuildOptionsColumn (IClet clet)
     {
-        Type underlying = Nullable.GetUnderlyingType (type) ?? type;
+        List<string> parts = new ();
 
-        if (underlying == typeof (string)) return "string";
-        if (underlying == typeof (int) || underlying == typeof (long) || underlying == typeof (short)) return "int";
-        if (underlying == typeof (decimal) || underlying == typeof (double) || underlying == typeof (float)) return "decimal";
-        if (underlying == typeof (bool)) return "bool";
-        if (underlying == typeof (DateTime) || underlying == typeof (DateOnly)) return "date";
-        if (underlying == typeof (TimeOnly)) return "time";
-        if (underlying == typeof (TimeSpan)) return "duration";
-        if (underlying == typeof (void)) return "none";
+        foreach (CletOptionDescriptor opt in clet.Options)
+        {
+            parts.Add ($"`--{opt.Name}`");
+        }
 
-        return underlying.Name;
+        if (clet.AcceptsPositionalArgs)
+        {
+            parts.Add ("`args...`");
+        }
+
+        return parts.Count == 0 ? "" : string.Join (", ", parts);
     }
+
+    private static string ResultTypeName (Type type) => CletTypeNames.WireName (type);
 }

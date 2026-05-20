@@ -31,10 +31,12 @@ public class BuiltInCletsTests
     [InlineData ("color")]
     [InlineData ("multi-select")]
     [InlineData ("attribute-picker")]
+    [InlineData ("attribute")]
     [InlineData ("pick-file")]
     [InlineData ("file")]
     [InlineData ("pick-directory")]
     [InlineData ("dir")]
+    [InlineData ("linear-range")]
     [InlineData ("range")]
     public void RegisterAll_RegistersInputClet (string alias)
     {
@@ -47,8 +49,12 @@ public class BuiltInCletsTests
     }
 
     [Theory]
+    [InlineData ("edit")]
+    [InlineData ("editor")]
     [InlineData ("md")]
     [InlineData ("markdown")]
+    [InlineData ("help")]
+    [InlineData ("config")]
     public void RegisterAll_RegistersViewerClet (string alias)
     {
         ICletRegistry registry = new CletRegistry ();
@@ -60,11 +66,11 @@ public class BuiltInCletsTests
     }
 
     [Fact]
-    public void RegisterAll_Registers16Clets ()
+    public void RegisterAll_Registers19Clets ()
     {
         CletRegistry registry = new ();
         BuiltInClets.RegisterAll (registry);
 
-        Assert.Equal (16, registry.All.Count);
+        Assert.Equal (18, registry.All.Count);
     }
 }

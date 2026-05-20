@@ -16,8 +16,10 @@ internal sealed class MultiSelectClet : IClet<JsonArray?>
 
     public IReadOnlyList<CletOptionDescriptor> Options =>
     [
-        new ("options", "o", typeof (string), "Comma-separated list of options to display.", true, null),
+        new("options", "o", typeof(string), "Comma-separated list of options to display.", true, null),
     ];
+
+    public bool AcceptsPositionalArgs => true;
 
     public async Task<CletRunResult<JsonArray?>> RunAsync (
         IApplication app,
@@ -36,11 +38,11 @@ internal sealed class MultiSelectClet : IClet<JsonArray?>
                 ? LabelParser.Split (optionsValue)
                 : [];
 
-        int[] values = new int [labels.Length];
+        int[] values = new int[labels.Length];
 
         for (int i = 0; i < labels.Length; i++)
         {
-            values [i] = 1 << i;
+            values[i] = 1 << i;
         }
 
         FlagSelector flagSelector = new ()
@@ -56,7 +58,8 @@ internal sealed class MultiSelectClet : IClet<JsonArray?>
 
             for (int i = 0; i < labels.Length; i++)
             {
-                if (Array.Exists (initialLabels, l => string.Equals (l.Trim (), labels [i], StringComparison.OrdinalIgnoreCase)))
+                if (Array.Exists (initialLabels,
+                        l => string.Equals (l.Trim (), labels[i], StringComparison.OrdinalIgnoreCase)))
                 {
                     flags |= 1 << i;
                 }
@@ -89,7 +92,7 @@ internal sealed class MultiSelectClet : IClet<JsonArray?>
         }
 
         int? resultFlags = wrapper.Result;
-        JsonArray selected = new ();
+        JsonArray selected = [];
 
         if (resultFlags is { } bits)
         {
@@ -97,7 +100,7 @@ internal sealed class MultiSelectClet : IClet<JsonArray?>
             {
                 if ((bits & (1 << i)) != 0)
                 {
-                    selected.Add (JsonValue.Create (labels [i]));
+                    selected.Add ((JsonNode)labels[i]);
                 }
             }
         }

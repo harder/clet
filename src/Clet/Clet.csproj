@@ -1,12 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Clet</RootNamespace>
     <AssemblyName>clet</AssemblyName>
+    <RollForward>LatestMajor</RollForward>
 
     <!-- NativeAOT publish settings (apply only to `dotnet publish`, not `dotnet pack`/`dotnet build`). -->
     <PublishAot>true</PublishAot>
@@ -21,21 +19,27 @@
     <ToolCommandName>clet</ToolCommandName>
     <PackageId>clet</PackageId>
     <Version>1.0.0-alpha</Version>
-    <Authors>gui-cs</Authors>
-    <Description>Turns every Terminal.Gui View into a CLI command — typed inputs, a real file picker, a Markdown viewer — with consistent JSON output, predictable exit codes, and full keyboard/mouse support.</Description>
+    <Description>Turns every Terminal.Gui View into a CLI command — typed inputs, a real file picker, a Markdown browser — with consistent JSON output, predictable exit codes, and full keyboard/mouse support.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/gui-cs/clet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/gui-cs/clet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>terminal-gui;tui;cli;prompt;json;agent;select;file-picker;markdown</PackageTags>
-
-    <!-- TG version for local builds; release workflow overrides via -p:TerminalGuiVersion=<dispatched_tg_version>. See D-020. -->
-    <TerminalGuiVersion Condition="'$(TerminalGuiVersion)' == ''">2.0.2-develop.37</TerminalGuiVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Terminal.Gui" Version="$(TerminalGuiVersion)" />
+    <PackageReference Include="Terminal.Gui.Editor" Version="$(TerminalGuiEditorVersion)" />
+    <!--
+      Workaround: TG's transitive TextMateSharp reference doesn't flow into
+      `dotnet publish` output (only TextMateSharp.Grammars does), so the
+      markdown viewer's syntax highlighter throws FileNotFoundException at
+      runtime in a published binary. Pin matches what TextMateSharp.Grammars
+      already brings in via its own dependency. Remove once upstream TG
+      fixes the package's asset flow.
+    -->
+    <PackageReference Include="TextMateSharp" Version="2.0.3" />
   </ItemGroup>
 
   <ItemGroup>

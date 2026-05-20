@@ -16,9 +16,9 @@ internal sealed class PickFileClet : IClet<JsonNode?>
 
     public IReadOnlyList<CletOptionDescriptor> Options =>
     [
-        new ("multi", "m", typeof (bool), "Allow selecting multiple files.", false, "false"),
-        new ("root", "r", typeof (string), "Starting directory.", false, null),
-        new ("filter", "f", typeof (string), "File type filter (e.g. \"*.cs\").", false, null),
+        new("multi", "m", typeof(bool), "Allow selecting multiple files.", false, "false"),
+        new("root", "r", typeof(string), "Starting directory (not a sandbox — user can navigate freely).", false, null),
+        new("filter", "f", typeof(string), "File type filter (e.g. \"*.cs\").", false, null),
     ];
 
     public async Task<CletRunResult<JsonNode?>> RunAsync (
@@ -83,30 +83,31 @@ internal sealed class PickFileClet : IClet<JsonNode?>
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new CletRunResult<JsonNode?> { Status = CletRunStatus.Cancelled };
         }
 
-        IReadOnlyList<string>? paths = dialog.FilePaths;
+        IReadOnlyList<string> paths = dialog.FilePaths;
 
-        if (paths is null || paths.Count == 0)
+        if (paths.Count == 0)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new CletRunResult<JsonNode?> { Status = CletRunStatus.Cancelled };
         }
 
-        if (multi)
+        if (!multi)
         {
-            List<string> sorted = new (paths);
-            sorted.Sort (StringComparer.Ordinal);
-            JsonArray arr = new ();
-
-            foreach (string p in sorted)
-            {
-                arr.Add (JsonValue.Create (p));
-            }
-
-            return new () { Status = CletRunStatus.Ok, Value = arr };
+            return new CletRunResult<JsonNode?> { Status = CletRunStatus.Ok, Value = JsonValue.Create (paths[0]) };
         }
 
-        return new () { Status = CletRunStatus.Ok, Value = JsonValue.Create (paths [0]) };
+        List<string> sorted = new (paths);
+        sorted.Sort (StringComparer.Ordinal);
+        JsonArray arr = [];
+
+        foreach (string p in sorted)
+        {
+            arr.Add ((JsonNode)p);
+        }
+
+        return new () { Status = CletRunStatus.Ok, Value = arr };
+
     }
 }

@@ -42,9 +42,15 @@ The trust boundary is between the shell/agent layer and the clet CLI host. Every
 
 ### Terminal escape sanitization
 
-**Threat:** An attacker passes terminal escape sequences (C0/C1 control codes) in `--title`, `--initial`, or positional arguments to manipulate the terminal state (cursor repositioning, window title injection, clipboard access via OSC 52).
+**Threat:** An attacker passes terminal escape sequences (C0/C1 control codes) in `--title`, `--initial`, positional arguments, or markdown content (via `clet md`) to manipulate the terminal state (cursor repositioning, window title injection, clipboard access via OSC 52, hyperlink spoofing via OSC 8).
 
-**Mitigation:** Terminal.Gui's View layer renders text through its own attribute/cell model, not by passing raw strings to the terminal. User-supplied strings become `Text` properties on Views (`TextField`, `OptionSelector`, etc.), which are rendered cell-by-cell with explicit attributes. Control characters in user strings are displayed as glyphs (or ignored), not interpreted as escape sequences.
+**Mitigation:** clet implements a defense-in-depth approach:
+
+1. **Input sanitization (TerminalEscapeSanitizer):** All user-supplied content is stripped of dangerous terminal control sequences *before* it reaches Terminal.Gui. The sanitizer removes ESC (`\x1b`), BEL (`\x07`), 8-bit CSI (`\x9b`), 8-bit OSC (`\x9d`), and C1 7-bit pairs (`\x1b@` through `\x1b_`). This filter runs at every code path that hands user content to the renderer:
+   - `MarkdownClet`: inline content and file-loaded content are sanitized before assignment to `markdownView.Text`.
+   - `MarkdownHelpRenderer.RenderToAnsi`: input markdown is sanitized before rendering, and a second pass on the rendered ANSI output strips any user-payload escape sequences that survived through TG rendering (while preserving the renderer's own SGR/cursor sequences).
+
+2. **TG's cell model (defense-in-depth):** Terminal.Gui's View layer renders text through its own attribute/cell model. User-supplied strings become `Text` properties on Views, which are rendered cell-by-cell with explicit attributes. However, clet does **not** rely on TG to filter terminal escapes — the `TerminalEscapeSanitizer` is clet's own defense, applied before content reaches TG (see D-030).
 
 **For JSON output (`--json`):** The `OutputFormatter` writes to stdout via `SchemaV1.ToJson()`, which uses `System.Text.Json` source-generated serialization. JSON string escaping handles control characters per RFC 8259 (e.g. `\u001b` for ESC). No raw user input reaches stdout unescaped.
 
@@ -63,18 +69,35 @@ The trust boundary is between the shell/agent layer and the clet CLI host. Every
 **Mitigation:** Default link policy is `SurfaceOnly` (D-017):
 - `LinkClicked` event handler shows the URL in the status bar and sets `e.Handled = true`.
 - No link is ever opened automatically.
-- A future `--allow-link-open` option can opt in to opening links; it is off by default.
+- No `Process.Start` or `ShellExecute` call exists anywhere in `src/`.
 - AI agents running `clet md` on untrusted content are safe by default.
+
+**`--allow-link-open` status:** v1.0 ships with the closed-by-default policy only. No `--allow-link-open` opt-in flag is wired up. The flag is reserved for a future release (v1.x or later) and will require explicit user acceptance of the documented risks (arbitrary URL scheme handling, potential data exfiltration via URL parameters). Until that flag ships, there is no code path that can open a link from rendered Markdown.
 
 ### File access scope
 
-**Threat:** `clet pick-file` or `clet pick-directory` could be used to navigate to sensitive directories. `clet md` could be pointed at sensitive files.
+**Threat:** `clet md` could be used as an arbitrary file-read primitive in agent contexts. An indirect-prompt-injection could instruct an agent to run `clet md /home/$USER/.aws/credentials`, exfiltrating file contents via the rendered ANSI or `--cat` output. Similarly, glob patterns like `clet md '/etc/*.conf'` could enumerate and read multiple files.
 
-**Mitigation:**
-- File pickers use TG's `OpenDialog`, which honors OS-level file permissions and sandboxing.
-- `clet md` reads files via `File.ReadAllText()` — standard OS permission checks apply.
-- No privilege escalation: clet runs as the invoking user, never setuid/setgid.
-- The `--root` option on `pick-file`/`pick-directory` constrains the starting directory but does not prevent navigation outside it (that's the OS sandbox's job).
+**Mitigation (D-030):** `clet md` enforces a file-access confinement policy:
+
+1. **Extension allowlist:** Only `.md`, `.markdown`, and `.txt` files are permitted by default.
+2. **Working directory confinement:** Files must reside under the process working directory. Paths outside the cwd are refused.
+3. **Per-file size cap:** 16 MiB maximum per file.
+4. **Aggregate size cap:** 32 MiB maximum across all glob-expanded files.
+5. **Glob file count cap:** Maximum 128 files per glob expansion.
+6. **Binary content rejection:** Files containing NUL bytes in the first 8 KiB are refused (prevents accidentally rendering binary files).
+
+**Escape hatches:**
+- `--allow-file <path>` (repeatable): Explicitly allows a specific file path, bypassing extension and cwd checks. The file must still pass size and binary checks.
+- `--allow-binary`: Permits binary content (disables NUL-byte detection).
+
+**Rationale:** In agent contexts, positional arguments to `clet md` may be attacker-influenced. The default-deny policy prevents exfiltration while `--allow-file` provides an explicit opt-in for legitimate use cases where the caller controls the argument list.
+
+**`pick-file` / `pick-directory` `--root` option:**
+- `--root` sets the *starting directory* for the file picker dialog. It is **not** a sandbox.
+- The user can navigate freely outside the root directory via the dialog's path bar.
+- This is a deliberate design choice: the user is interactively choosing files, not an attacker. The OS file permission model is the sandboxing mechanism for interactive pickers.
+- The help text explicitly documents this: "Starting directory (not a sandbox — user can navigate freely)."
 
 ### Plugin loading exclusion
 
@@ -102,6 +125,16 @@ NativeAOT publishing (`PublishAot=true`) further closes this surface: AOT binari
 - Source-generated `CletJsonContext` ensures AOT-safe, deterministic serialization.
 - Contract tests (unit + smoke) validate every envelope shape: `ok`, `cancelled`, `error`, `no-result`.
 - `schemaVersion: 1` is locked for clet 1.x; additive-only changes per §4.3.1.
+
+## Release pipeline
+
+### Script injection via workflow inputs
+
+**Threat:** GitHub Actions interpolates `${{ github.event.* }}` expressions directly into `run:` scripts *before* the shell parses them. An attacker who controls a `repository_dispatch` payload (e.g. a compromised Terminal.Gui PAT) or a `workflow_dispatch` input (e.g. a compromised maintainer account) can inject arbitrary shell commands. The `resolve-version` job runs with `contents: write` + `issues: write` and the downstream `publish-nuget` job uses `secrets.NUGET_API_KEY`, making successful injection high-impact (backdoored NuGet package, exfiltrated secrets).
+
+**Mitigation (D-029):** All user-controlled expressions (`github.event.client_payload.tg_version`, `github.event.inputs.tg_version`, `github.event.inputs.version_override`) are bound to step-level `env:` variables and only referenced as `$VAR` inside the `run:` script — the standard GitHub hardening pattern. Additionally, both inputs are validated against a strict allowlist regex (`^[0-9A-Za-z._+*-]+$`) before use; the step exits 2 if validation fails. See [GitHub's hardening guide](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#good-practices-for-mitigating-script-injection-attacks).
+
+**What is not user-controlled:** `github.event_name` is runner-set metadata (not attacker-controllable), but it is also moved into `env:` for defense-in-depth.
 
 ## Out of scope for v1.0
 

@@ -110,9 +110,9 @@ public class OutputFormatterTests
 
         string[] lines = stdout.ToString ().TrimEnd ().Split (Environment.NewLine);
         Assert.Equal (3, lines.Length);
-        Assert.Equal ("Apple", lines [0]);
-        Assert.Equal ("Banana", lines [1]);
-        Assert.Equal ("Cherry", lines [2]);
+        Assert.Equal ("Apple", lines[0]);
+        Assert.Equal ("Banana", lines[1]);
+        Assert.Equal ("Cherry", lines[2]);
     }
 
     [Fact]
@@ -158,5 +158,79 @@ public class OutputFormatterTests
         string output = stdout.ToString ().TrimEnd ();
         Assert.Contains ("\"status\":\"ok\"", output);
         Assert.Contains ("\"fg\":\"#ff0000\"", output);
+    }
+
+    [Fact]
+    public void OutputPath_WritesToFile_NotStdout ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Ok, "hello", null, null);
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = Path.Combine (Path.GetTempPath (), $"clet_test_{Guid.NewGuid ()}.txt");
+
+        try
+        {
+            bool success = OutputFormatter.Write (result, jsonOutput: false, stdout, stderr, path);
+
+            Assert.True (success);
+            Assert.Empty (stdout.ToString ());
+            Assert.Equal ("hello", File.ReadAllText (path).TrimEnd ());
+        }
+        finally
+        {
+            File.Delete (path);
+        }
+    }
+
+    [Fact]
+    public void OutputPath_Json_WritesJsonToFile ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Ok, 42, null, null);
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = Path.Combine (Path.GetTempPath (), $"clet_test_{Guid.NewGuid ()}.json");
+
+        try
+        {
+            bool success = OutputFormatter.Write (result, jsonOutput: true, stdout, stderr, path);
+
+            Assert.True (success);
+            Assert.Empty (stdout.ToString ());
+            string content = File.ReadAllText (path).TrimEnd ();
+            Assert.Contains ("\"status\":\"ok\"", content);
+            Assert.Contains ("\"value\":42", content);
+        }
+        finally
+        {
+            File.Delete (path);
+        }
+    }
+
+    [Fact]
+    public void OutputPath_InvalidPath_ReturnsFalseAndWritesStderr ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Ok, "hello", null, null);
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = "/nonexistent_dir_xyz/impossible/file.txt";
+
+        bool success = OutputFormatter.Write (result, jsonOutput: false, stdout, stderr, path);
+
+        Assert.False (success);
+        Assert.Empty (stdout.ToString ());
+        Assert.Contains ("cannot write to", stderr.ToString ());
+    }
+
+    [Fact]
+    public void OutputPath_Null_WritesToStdout ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Ok, "world", null, null);
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+
+        bool success = OutputFormatter.Write (result, jsonOutput: false, stdout, stderr, outputPath: null);
+
+        Assert.True (success);
+        Assert.Equal ("world", stdout.ToString ().TrimEnd ());
     }
 }

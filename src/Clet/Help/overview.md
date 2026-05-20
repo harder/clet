@@ -17,6 +17,7 @@
 | `--json`, `-j` | Emit result as a JSON envelope |
 | `--timeout` `<duration>` | Auto-cancel after duration (e.g. `30s`, `1m`, `500ms`) |
 | `--fullscreen`, `-f` | Force fullscreen rendering (default for viewers) |
+| `--output`, `-o` `<path>` | Write result to a file instead of stdout |
 
 ## JSON Output
 
@@ -48,5 +49,7 @@ clet help <alias>
 clet --help
 clet --version
 ```
+
+[Help on help](clet:help:help)
 
 {{VERSION}} - [clet on GitHub](https://github.com/gui-cs/clet) - By [@tig](https://github.com/tig)

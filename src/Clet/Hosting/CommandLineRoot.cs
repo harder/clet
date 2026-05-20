@@ -31,7 +31,7 @@ internal sealed class CommandLineRoot
             return ExitCodes.Ok;
         }
 
-        switch (args [0])
+        switch (args[0])
         {
             case "--help":
             case "-h":
@@ -43,9 +43,6 @@ internal sealed class CommandLineRoot
                 stdout.WriteLine ($"{GetVersion ()} (Terminal.Gui {GetTerminalGuiVersion ()})");
 
                 return ExitCodes.Ok;
-
-            case "help":
-                return WriteAliasHelp (args, stdout, stderr);
 
             case "list":
                 return WriteList (args, stdout);
@@ -60,19 +57,40 @@ internal sealed class CommandLineRoot
         TextWriter stdout,
         TextWriter stderr)
     {
-        string alias = args [0];
+        string alias = args[0];
+
+        // Support `clet <alias> help`, `clet <alias> --help`, `clet <alias> -h`
+        // Rewrite as `clet help <alias> [--cat]` and re-dispatch.
+        // Skip when alias is already "help" to avoid infinite recursion.
+        if (alias != "help" && args.Length >= 2 && args[1] is "help" or "--help" or "-h")
+        {
+            List<string> helpArgs = ["help", alias];
+
+            if (Array.Exists (args, a => a == "--cat"))
+            {
+                helpArgs.Add ("--cat");
+            }
+
+            return await DispatchAlias (helpArgs.ToArray (), cancellationToken, stdout, stderr);
+        }
+
         string? initial = null;
         string? title = null;
+        string? outputPath = null;
         bool jsonOutput = false;
         bool fullscreen = false;
+        bool cat = false;
+        bool allowBinary = false;
+        bool noBrowse = false;
         TimeSpan? timeout = null;
         int? rows = null;
         Dictionary<string, string> cletOptions = new (StringComparer.OrdinalIgnoreCase);
         List<string> positionalArgs = [];
+        List<string> allowedFiles = [];
 
         for (int i = 1; i < args.Length; i++)
         {
-            string arg = args [i];
+            string arg = args[i];
 
             if (arg is "--json" or "-j")
             {
@@ -88,6 +106,41 @@ internal sealed class CommandLineRoot
                 continue;
             }
 
+            if (arg == "--cat")
+            {
+                cat = true;
+
+                continue;
+            }
+
+            if (arg == "--allow-binary")
+            {
+                allowBinary = true;
+
+                continue;
+            }
+
+            if (arg == "--no-browse")
+            {
+                noBrowse = true;
+
+                continue;
+            }
+
+            if (arg == "--allow-file")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    stderr.WriteLine ("error: --allow-file requires a file path.");
+
+                    return ExitCodes.UsageError;
+                }
+
+                allowedFiles.Add (args[++i]);
+
+                continue;
+            }
+
             if (arg == "--timeout")
             {
                 if (i + 1 >= args.Length)
@@ -97,9 +150,9 @@ internal sealed class CommandLineRoot
                     return ExitCodes.UsageError;
                 }
 
-                if (!TryParseTimeout (args [++i], out TimeSpan parsed))
+                if (!TryParseTimeout (args[++i], out TimeSpan parsed))
                 {
-                    stderr.WriteLine ($"error: invalid --timeout value '{args [i]}'. Use 30s, 1m, 500ms.");
+                    stderr.WriteLine ($"error: invalid --timeout value '{args[i]}'. Use 30s, 1m, 500ms.");
 
                     return ExitCodes.UsageError;
                 }
@@ -118,7 +171,7 @@ internal sealed class CommandLineRoot
                     return ExitCodes.UsageError;
                 }
 
-                initial = args [++i];
+                initial = args[++i];
 
                 // Cap --initial at 64 K characters to prevent OOM from untrusted input
                 if (initial.Length > MaxInitialChars)
@@ -143,7 +196,21 @@ internal sealed class CommandLineRoot
                     return ExitCodes.UsageError;
                 }
 
-                title = args [++i];
+                title = args[++i];
+
+                continue;
+            }
+
+            if (arg is "--output" or "-o")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    stderr.WriteLine ("error: --output requires a file path.");
+
+                    return ExitCodes.UsageError;
+                }
+
+                outputPath = args[++i];
 
                 continue;
             }
@@ -157,9 +224,9 @@ internal sealed class CommandLineRoot
                     return ExitCodes.UsageError;
                 }
 
-                if (!int.TryParse (args [++i], out int parsedRows) || parsedRows < 1)
+                if (!int.TryParse (args[++i], out int parsedRows) || parsedRows < 1)
                 {
-                    stderr.WriteLine ($"error: invalid --rows value '{args [i]}'. Must be a positive integer.");
+                    stderr.WriteLine ($"error: invalid --rows value '{args[i]}'. Must be a positive integer.");
 
                     return ExitCodes.UsageError;
                 }
@@ -178,7 +245,7 @@ internal sealed class CommandLineRoot
                     return ExitCodes.UsageError;
                 }
 
-                cletOptions [arg [2..]] = args [++i];
+                cletOptions[arg[2..]] = args[++i];
 
                 continue;
             }
@@ -190,43 +257,42 @@ internal sealed class CommandLineRoot
         {
             JsonOutput = jsonOutput,
             Fullscreen = fullscreen,
+            Cat = cat,
+            OutputPath = outputPath,
             Timeout = timeout,
             Title = title,
             Rows = rows,
             CletOptions = cletOptions,
             Arguments = positionalArgs.Count > 0 ? positionalArgs : null,
+            AllowedFiles = allowedFiles.Count > 0 ? allowedFiles : null,
+            AllowBinary = allowBinary,
+            NoBrowse = noBrowse,
         };
 
-        return await _dispatcher.DispatchAsync (alias, initial, options, cancellationToken, stdout, stderr);
-    }
-
-    private int WriteAliasHelp (string[] args, TextWriter stdout, TextWriter stderr)
-    {
-        if (args.Length < 2)
+        // Validate positional args before dispatching.
+        // Look up the clet here (cheap dictionary lookup) so we can gate on AcceptsPositionalArgs.
+        if (positionalArgs.Count > 0
+            && _registry.TryResolve (alias, out IClet? clet)
+            && clet is not null
+            && !clet.AcceptsPositionalArgs)
         {
-            WriteRootHelp (stdout);
+            string joined = string.Join (" ", positionalArgs);
+            stderr.WriteLine ($"error: '{alias}' does not accept positional arguments: {joined}");
 
-            return ExitCodes.Ok;
-        }
-
-        string alias = args [1];
-
-        if (!_registry.TryResolve (alias, out IClet? clet) || clet is null)
-        {
-            stderr.WriteLine ($"error: unknown alias '{alias}'. Try 'clet list' to see available clets.");
+            if (positionalArgs.Count == 1)
+            {
+                stderr.WriteLine ($"hint: did you mean 'clet {alias} --initial {positionalArgs[0]}'?");
+            }
 
             return ExitCodes.UsageError;
         }
 
-        string markdown = MarkdownHelpRenderer.BuildAliasHelpMarkdown (clet);
-        MarkdownHelpRenderer.RenderToAnsi (markdown, stdout);
-
-        return ExitCodes.Ok;
+        return await _dispatcher.DispatchAsync (alias, initial, options, cancellationToken, stdout, stderr);
     }
 
     private int WriteList (string[] args, TextWriter stdout)
     {
-        bool json = args.Length > 1 && args [1] is "--json" or "-j";
+        bool json = args.Length > 1 && args[1] is "--json" or "-j";
 
         if (json)
         {
@@ -382,99 +448,11 @@ internal sealed class CommandLineRoot
         MarkdownHelpRenderer.RenderToAnsi (markdown, stdout);
     }
 
-    private static string GetVersion ()
-    {
-        string? informational = typeof (Program).Assembly
-            .GetCustomAttributes (typeof (System.Reflection.AssemblyInformationalVersionAttribute), false)
-            .OfType<System.Reflection.AssemblyInformationalVersionAttribute> ()
-            .FirstOrDefault ()
-            ?.InformationalVersion;
+    private static string GetVersion () => VersionInfo.GetCletVersion ();
 
-        if (!string.IsNullOrWhiteSpace (informational))
-        {
-            int plus = informational.IndexOf ('+');
+    private static string GetTerminalGuiVersion () => VersionInfo.GetTerminalGuiVersion ();
 
-            return plus >= 0 ? informational [..plus] : informational;
-        }
-
-        return typeof (Program).Assembly.GetName ().Version?.ToString (3) ?? "0.0.0";
-    }
-
-    private static string GetTerminalGuiVersion ()
-    {
-        System.Reflection.Assembly tg = typeof (Terminal.Gui.App.Application).Assembly;
-        string? informational = tg
-            .GetCustomAttributes (typeof (System.Reflection.AssemblyInformationalVersionAttribute), false)
-            .OfType<System.Reflection.AssemblyInformationalVersionAttribute> ()
-            .FirstOrDefault ()
-            ?.InformationalVersion;
-
-        if (!string.IsNullOrWhiteSpace (informational))
-        {
-            int plus = informational.IndexOf ('+');
-
-            return plus >= 0 ? informational [..plus] : informational;
-        }
-
-        return tg.GetName ().Version?.ToString (3) ?? "unknown";
-    }
-
-    private static string ResultTypeName (Type type)
-    {
-        Type underlying = Nullable.GetUnderlyingType (type) ?? type;
-
-        if (underlying == typeof (string))
-        {
-            return "string";
-        }
-
-        if (underlying == typeof (int) || underlying == typeof (long) || underlying == typeof (short))
-        {
-            return "int";
-        }
-
-        if (underlying == typeof (decimal) || underlying == typeof (double) || underlying == typeof (float))
-        {
-            return "decimal";
-        }
-
-        if (underlying == typeof (bool))
-        {
-            return "bool";
-        }
-
-        if (underlying == typeof (DateTime) || underlying == typeof (DateOnly))
-        {
-            return "date";
-        }
-
-        if (underlying == typeof (TimeOnly))
-        {
-            return "time";
-        }
-
-        if (underlying == typeof (TimeSpan))
-        {
-            return "duration";
-        }
-
-        if (underlying == typeof (JsonArray))
-        {
-            return "array";
-        }
-
-        if (underlying == typeof (JsonObject))
-        {
-            return "object";
-        }
-
-        if (underlying == typeof (JsonNode))
-        {
-            return "json";
-        }
-
-        return underlying.Name;
-    }
+    private static string ResultTypeName (Type type) => CletTypeNames.WireName (type);
 
     public static bool TryParseTimeout (string input, out TimeSpan timeout)
     {
@@ -491,22 +469,22 @@ internal sealed class CommandLineRoot
 
         if (input.EndsWith ("ms", StringComparison.OrdinalIgnoreCase))
         {
-            body = input [..^2];
+            body = input[..^2];
             factory = TimeSpan.FromMilliseconds;
         }
         else if (input.EndsWith ("s", StringComparison.OrdinalIgnoreCase))
         {
-            body = input [..^1];
+            body = input[..^1];
             factory = TimeSpan.FromSeconds;
         }
         else if (input.EndsWith ("m", StringComparison.OrdinalIgnoreCase))
         {
-            body = input [..^1];
+            body = input[..^1];
             factory = TimeSpan.FromMinutes;
         }
         else if (input.EndsWith ("h", StringComparison.OrdinalIgnoreCase))
         {
-            body = input [..^1];
+            body = input[..^1];
             factory = TimeSpan.FromHours;
         }
         else

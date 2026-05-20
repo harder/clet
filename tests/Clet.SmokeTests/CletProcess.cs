@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 
 namespace Clet.SmokeTests;
 
@@ -22,6 +21,8 @@ internal static class CletProcess
             CreateNoWindow = true,
         };
 
+        psi.Environment["DisableRealDriverIO"] = "1";
+
         psi.ArgumentList.Add ("exec");
         psi.ArgumentList.Add (CletAssemblyPath);
 
@@ -30,7 +31,8 @@ internal static class CletProcess
             psi.ArgumentList.Add (a);
         }
 
-        using Process process = new () { StartInfo = psi };
+        using Process process = new ();
+        process.StartInfo = psi;
         process.Start ();
 
         if (stdin is not null)
@@ -82,7 +84,7 @@ internal static class CletProcess
         // configuration/RID paths.
         string testDir = Path.GetDirectoryName (typeof (CletProcess).Assembly.Location)!;
 
-        foreach (string name in new [] { "clet.dll", "Clet.dll" })
+        foreach (string name in new[] { "clet.dll", "Clet.dll" })
         {
             string candidate = Path.Combine (testDir, name);
 

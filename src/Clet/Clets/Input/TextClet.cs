@@ -1,5 +1,7 @@
 using Terminal.Gui.App;
+using Terminal.Gui.Document;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.Editor;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -9,8 +11,8 @@ namespace Clet;
 internal sealed class TextClet : IClet<string?>
 {
     public string PrimaryAlias => "text";
-    public IReadOnlyList<string> Aliases => ["text"];
-    public string Description => "Prompts for free-form text input and returns the entered string.";
+    public IReadOnlyList<string> Aliases => ["text", "multiline-text", "mt"];
+    public string Description => "Prompts for multi-line text input using an editor and returns the entered string.";
     public CletKind Kind => CletKind.Input;
     public Type ResultType => typeof (string);
 
@@ -27,22 +29,34 @@ internal sealed class TextClet : IClet<string?>
             return new () { Status = CletRunStatus.Cancelled };
         }
 
-        TextField textField = new ()
+        int rows = options.Rows ?? 5;
+
+        Editor editor = new ()
         {
-            Text = initial ?? string.Empty,
+            Document = new TextDocument (initial ?? string.Empty),
             Width = Dim.Fill (),
+            Height = rows,
+            ConvertTabsToSpaces = true,
         };
 
-        RunnableWrapper<TextField, string?> wrapper = new (textField)
+        Button okButton = new ()
         {
-            Title = options.Title ?? "Enter text (Enter to accept, Esc to cancel)",
+            Text = "_OK",
+            Y = Pos.Bottom (editor),
+        };
+
+        RunnableWrapper<Editor, string?> wrapper = new (editor)
+        {
+            Title = options.Title ?? "Enter text (OK to accept, Esc to cancel)",
             Width = Dim.Fill (),
             BorderStyle = LineStyle.Rounded,
-            ResultExtractor = t => t.Text,
+            ResultExtractor = e => e.Document?.Text,
             SchemeName = CletStyling.BaseSchemeName,
         };
         wrapper.Border.Thickness = new Thickness (0, 1, 0, 0);
-        wrapper.KeyBindings.Add (Key.Enter, Command.Accept);
+        wrapper.Add (okButton);
+
+        okButton.Accepted += (_, _) => wrapper.InvokeCommand (Command.Accept);
 
         try
         {

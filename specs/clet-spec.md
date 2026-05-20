@@ -8,9 +8,9 @@ This is the implementation spec. It assumes the PR/FAQ is broadly accepted and c
 
 ### In scope (v1.0)
 
-- New repo `gui-cs/clet` containing all clet code: abstractions, registry, JSON, source generator placeholder, built-in clets, CLI binary, release automation.
+- New repo `gui-cs/clet` containing all clet code: abstractions, registry, JSON, built-in clets, CLI binary, release automation.
 - Targeted changes to `gui-cs/Terminal.Gui` core (§3) that benefit TG generally and unblock clet specifically.
-- Fourteen input clets and one viewer clet (`md`) statically registered in v1.0.
+- Fourteen input clets and one browser clet (`md`) statically registered in v1.0.
 - Native installer channels: Homebrew (gui-cs tap), WinGet, .NET tool. NativeAOT for native channels.
 - Independent SemVer; major version tied to `schemaVersion` changes per §4.3.1 (see [D-022](decisions.md)).
 - JSON output contract (schemaVersion 1).
@@ -33,15 +33,14 @@ Two repos. One assembly that matters (the CLI exe). One release cadence.
 ```
 gui-cs/Terminal.Gui                           gui-cs/clet
 ├── Terminal.Gui/                             ├── src/
-│     (core; §3 tweaks land here,             │   ├── Clet/
-│      no clet-specific types)                │   │     Abstractions/  (IClet, ICletRegistry, ...)
-├── Tests/                                    │   │     Registry/
-│     (TG core tests only;                    │   │     Json/          (CletJsonContext, SchemaV1)
-│      clet tests live in gui-cs/clet)        │   │     Clets/Input/   (14 input clets)
-└── .github/workflows/                        │   │     Clets/Viewer/  (MarkdownClet)
-      notify-clet-on-release.yml (NEW)        │   │     Hosting/       (Program.cs, CLI parser)
-                                              │   │     Help/          (overview.md)
-                                              │   └── Clet.SourceGen/  (placeholder; D-021)
+│     (core; §3 tweaks land here,             │   └── Clet/
+│      no clet-specific types)                │         Abstractions/  (IClet, ICletRegistry, ...)
+├── Tests/                                    │         Registry/
+│     (TG core tests only;                    │         Json/          (CletJsonContext, SchemaV1)
+│      clet tests live in gui-cs/clet)        │         Clets/Input/   (14 input clets)
+└── .github/workflows/                        │         Clets/Viewer/  (MarkdownClet)
+      notify-clet-on-release.yml (NEW)        │         Hosting/       (Program.cs, CLI parser)
+                                              │         Help/          (overview.md)
                                               ├── tests/
                                               │     Clet.UnitTests/
                                               │     Clet.IntegrationTests/
@@ -99,7 +98,7 @@ On cancel, clet emits `{"schemaVersion":1,"status":"cancelled"}` and nothing els
 
 ## 4. `gui-cs/clet` Repo
 
-This repo holds everything: abstractions, registry, JSON, source generator placeholder, built-in clets, the CLI binary, and release automation. One assembly is published; everything else is build-time only or test-only.
+This repo holds everything: abstractions, registry, JSON, built-in clets, the CLI binary, and release automation. One assembly is published; everything else is build-time only or test-only.
 
 ### 4.1 Project layout
 
@@ -107,46 +106,45 @@ This repo holds everything: abstractions, registry, JSON, source generator place
 gui-cs/clet/
 ├── Clet.slnx
 ├── src/
-│   ├── Clet/                              (single Exe; PublishAot=true; net10.0)
-│   │   ├── Abstractions/
-│   │   │     IClet.cs                     (IClet + IClet<T> with RunBoxedAsync DIM)
-│   │   │     IViewerClet.cs               (with RunBoxedAsync DIM)
-│   │   │     ICletRegistry.cs
-│   │   │     BoxedCletResult.cs
-│   │   │     CletKind.cs                  (Input | Viewer)
-│   │   │     CletRunOptions.cs
-│   │   │     CletRunResult.cs             (non-generic + generic)
-│   │   │     CletRunStatus.cs
-│   │   │     CletOptionDescriptor.cs
-│   │   ├── Registry/
-│   │   │     CletRegistry.cs
-│   │   │     BuiltInClets.cs              (hand-written; D-004/D-021)
-│   │   ├── Json/
-│   │   │     CletJsonContext.cs           ([JsonSerializable] source-gen)
-│   │   │     SchemaV1.cs
-│   │   ├── Clets/
-│   │   │   ├── Input/
-│   │   │   │     SelectClet.cs, TextClet.cs, IntClet.cs, DecimalClet.cs,
-│   │   │   │     ConfirmClet.cs, MultiSelectClet.cs, PickFileClet.cs,
-│   │   │   │     PickDirectoryClet.cs, DateClet.cs, TimeClet.cs,
-│   │   │   │     DurationClet.cs, ColorClet.cs, AttributePickerClet.cs,
-│   │   │   │     RangeClet.cs
-│   │   │   │     (+ helpers: LabelParser.cs, FileFilterParser.cs, RangeView.cs)
-│   │   │   └── Viewer/
-│   │   │         MarkdownClet.cs
-│   │   ├── Help/
-│   │   │     overview.md                  (embedded resource for --help)
-│   │   ├── Hosting/
-│   │   │     Program.cs
-│   │   │     CommandLineRoot.cs           (hand-rolled CLI parser; D-006)
-│   │   │     AliasDispatcher.cs
-│   │   │     OutputFormatter.cs
-│   │   │     ExitCodes.cs
-│   │   │     MarkdownHelpRenderer.cs
-│   │   │     CletStyling.cs
-│   │   └── Properties/
-│   │         AssemblyInfo.cs              (InternalsVisibleTo)
-│   └── Clet.SourceGen/                    (placeholder; D-021)
+│   └── Clet/                              (single Exe; PublishAot=true; net10.0)
+│       ├── Abstractions/
+│       │     IClet.cs                     (IClet + IClet<T> with RunBoxedAsync DIM)
+│       │     IViewerClet.cs               (with RunBoxedAsync DIM)
+│       │     ICletRegistry.cs
+│       │     BoxedCletResult.cs
+│       │     CletKind.cs                  (Input | Viewer)
+│       │     CletRunOptions.cs
+│       │     CletRunResult.cs             (non-generic + generic)
+│       │     CletRunStatus.cs
+│       │     CletOptionDescriptor.cs
+│       ├── Registry/
+│       │     CletRegistry.cs
+│       │     BuiltInClets.cs              (hand-written)
+│       ├── Json/
+│       │     CletJsonContext.cs           ([JsonSerializable] source-gen)
+│       │     SchemaV1.cs
+│       ├── Clets/
+│       │   ├── Input/
+│       │   │     SelectClet.cs, TextClet.cs, IntClet.cs, DecimalClet.cs,
+│       │   │     ConfirmClet.cs, MultiSelectClet.cs, PickFileClet.cs,
+│       │   │     PickDirectoryClet.cs, DateClet.cs, TimeClet.cs,
+│       │   │     DurationClet.cs, ColorClet.cs, AttributePickerClet.cs,
+│       │   │     RangeClet.cs
+│       │   │     (+ helpers: LabelParser.cs, FileFilterParser.cs, RangeView.cs)
+│       │   └── Viewer/
+│       │         MarkdownClet.cs
+│       ├── Help/
+│       │     overview.md                  (embedded resource for --help)
+│       ├── Hosting/
+│       │     Program.cs
+│       │     CommandLineRoot.cs           (hand-rolled CLI parser; D-006)
+│       │     AliasDispatcher.cs
+│       │     OutputFormatter.cs
+│       │     ExitCodes.cs
+│       │     MarkdownHelpRenderer.cs
+│       │     CletStyling.cs
+│       └── Properties/
+│             AssemblyInfo.cs              (InternalsVisibleTo)
 ├── tests/
 │   ├── SPEC.md                            (testing spec)
 │   ├── Clet.UnitTests/
@@ -158,7 +156,7 @@ gui-cs/clet/
     └── runbooks/release-rollback.md
 ```
 
-**One src project (`Clet`).** Abstractions, registry, JSON, built-in clets, and `Program.Main` all compile into one assembly. The source generator is a separate project because Roslyn analyzers must be (build-time only).
+**One src project (`Clet`).** Abstractions, registry, JSON, built-in clets, and `Program.Main` all compile into one assembly.
 
 ### 4.2 Core types
 
@@ -220,8 +218,7 @@ For schema-lock at v0.5, the shape of `value` is fixed per alias.
 
 | Alias                         | `value` shape                                                |
 |-------------------------------|--------------------------------------------------------------|
-| `text`                        | string                                                       |
-| `multiline-text`              | string (newlines preserved as `\n`)                          |
+| `text`                        | string (newlines preserved as `\n`)                          |
 | `int`                         | integer                                                      |
 | `decimal`                     | number (JSON number; consumer decides float vs decimal)      |
 | `confirm`                     | boolean                                                      |
@@ -235,11 +232,11 @@ For schema-lock at v0.5, the shape of `value` is fixed per alias.
 | `duration`                    | string, ISO-8601 duration (`PT1H30M`)                        |
 | `color`                       | string, `#RRGGBB` (lowercase hex)                            |
 | `attribute-picker`            | object, `{"fg": "#RRGGBB", "bg": "#RRGGBB", "style": "..."}` |
-| `range`                       | object, `{"low": <T>, "high": <T>}` (`int` only at v0.3 — see [D-011](decisions.md)) |
+| `linear-range`                | object, shape depends on `--mode`. Single: `{"mode":"single","value":"<label>","index":N}`. Multi: `{"mode":"multi","values":[...],"indices":[...]}`. Range: `{"mode":"range","kind":"closed\|left\|right\|none",...}` with start/end fields conditional on kind. See [D-032](decisions.md). |
 
 ### 4.4 Registration
 
-`BuiltInClets.RegisterAll(ICletRegistry)` hand-registers all 15 clets. The `Clet.SourceGen` project is a placeholder; auto-discovery is deferred to v2 per [D-021](decisions.md). There is no `[Clet]` attribute in shipped code.
+`BuiltInClets.RegisterAll(ICletRegistry)` hand-registers all 18 clets. Auto-discovery via a source generator was explored and dropped — there is no `[Clet]` attribute in shipped code, and no source-generator project in the repo.
 
 ### 4.5 Built-in clet implementation pattern
 
@@ -259,7 +256,7 @@ See `src/Clet/Hosting/Program.cs`. The host creates a `CancellationTokenSource`,
 ### 4.7 CLI surface
 
 ```
-clet <alias> [positional...] [--initial <value>] [--title <text>] [--json] [--timeout 30s] [--fullscreen] [--rows <n>] [--<opt> <value>]...
+clet <alias> [positional...] [--initial <value>] [--title <text>] [--json] [--timeout 30s] [--fullscreen] [--cat] [--no-browse] [--rows <n>] [--output <path>] [--<opt> <value>]...
 clet list [--json]
 clet help <alias>
 clet --help
@@ -276,7 +273,13 @@ clet --version
   ╚═╝╩═╝╚═╝ ╩
 ```
 
-**Built-in flags.** `--initial`, `--title`, `--json`, `--timeout`, and `--fullscreen` are parsed at the host level. Anything else of the form `--<name> <value>` is forwarded as a clet-specific option. Bare positional tokens are forwarded as `CletRunOptions.Arguments` for clets that consume them (e.g. `select`, `multi-select`). See [D-014](decisions.md) for why `--title` is a host flag.
+**Built-in flags.** `--initial`, `--title`, `--json`, `--timeout`, `--fullscreen`, `--cat`, `--no-browse`, `--rows`, and `--output` are parsed at the host level and apply to every clet. Anything else of the form `--<name> <value>` is forwarded as a clet-specific option (see each clet's `clet help <alias>`). Bare positional tokens are forwarded as `CletRunOptions.Arguments` for clets that consume them (e.g. `select`, `multi-select`, `md`); clets that do not consume positional args reject them with a usage error (exit 2) before the clet runs. See [D-025](decisions.md) for the `AcceptsPositionalArgs` design and [D-014](decisions.md) for why `--title` is a host flag.
+
+**`--cat` (non-interactive rendering).** When `--cat` is passed to a viewer clet (currently `md`), content is rendered as ANSI-formatted text directly to stdout — no alt-screen, no interactive session. Useful for piping (`clet md --cat README.md | less -R`), CI logs, and AI agents. Content is resolved from file arguments, `--initial`, or stdin, same as the normal viewer path. If no content is available, exits with usage error (exit 2). See [D-027](decisions.md).
+
+**`--no-browse` (disable browser mode).** When `--no-browse` is passed to `md`, clicking local `.md` links shows the URL in the status bar instead of navigating. By default, `md` runs as a browser: following local links navigates to them with a back/forward history stack (Ctrl+Left / Ctrl+Right or ← → buttons in the status bar), and fragment anchors (`file.md#heading`) scroll to the matching heading.
+
+**`--output <path>` / `-o <path>` (file output).** Writes the clet's result (plain text or JSON) to the specified file instead of stdout. When `--output` is set, nothing is written to stdout by `OutputFormatter` — stdout stays fully available for TUI rendering. This works around the Terminal.Gui limitation where stdout redirection (`$()`, `|`, `>`) swallows the TUI (see gui-cs/Terminal.Gui#5207). If the file cannot be written, an error is emitted to stderr and the process exits with code 2. See [D-028](decisions.md).
 
 **Input-size caps.** `--initial` is capped at 64 K characters (code units). `clet md` stdin is capped at 8 M characters. On exceed: exit 65, error code `input-too-large`, JSON envelope `{"schemaVersion":1,"status":"error","code":"input-too-large","message":"..."}`. These caps prevent OOM from untrusted piped input (see Appendix A). Per-clet options (`--<name> <value>`) are not yet capped; tracked as a follow-up.
 
@@ -463,8 +466,8 @@ Full document published at `docs/threat-model.md`.
 
 - **Untrusted inputs:** `--initial`, env vars, stdin content, fixture file paths, `--title`, clet-specific options.
 - **Input-size caps:** `--initial` is capped at 64 K characters; `clet md` stdin is capped at 8 M characters. On exceed: exit 65, error code `input-too-large`, JSON envelope `{"schemaVersion":1,"status":"error","code":"input-too-large","message":"..."}`. Per-clet options are not yet capped; tracked as a follow-up.
-- **Sanitization:** All output to stdout/stderr passes through a terminal-escape filter (strip C0/C1 control sequences except those we generate). User-controlled display strings (`--title`, prompt labels) sanitized at the View boundary.
-- **Markdown link policy:** Default `SurfaceOnly` (links shown, never auto-opened). `--allow-link-open` flag for the user to opt in; off by default for AI agent use.
+- **Sanitization:** A `TerminalEscapeSanitizer` strips ESC, BEL, 8-bit CSI/OSC, and C1 7-bit pairs from all user-supplied content before it reaches the terminal driver or Terminal.Gui views. Applied at `MarkdownClet` (inline + file content) and `MarkdownHelpRenderer.RenderToAnsi` (input + rendered output). clet does not rely on TG to filter terminal escapes (D-030).
+- **Markdown link policy:** Default `SurfaceOnly` (links shown, never auto-opened). `--allow-link-open` flag deferred — not wired in v1.0; safe-by-default for AI agent use. See D-017, D-031.
 - **File access:** `pick-file` and `pick-directory` honor the OS sandbox/permission model; no privilege escalation.
 - **Plugin loading:** None in v1.0. (Closes the entire LoadFrom-based attack surface.)
 

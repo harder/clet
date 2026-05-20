@@ -48,15 +48,18 @@ public class CommandLineRootTests
     }
 
     [Fact]
-    public async Task HelpAlias_KnownAlias_PrintsAliasHelp ()
+    public async Task HelpAlias_KnownAlias_DispatchesHelpViewer ()
     {
         (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+        using CancellationTokenSource cts = new ();
+        cts.Cancel ();
 
-        int exit = await root.InvokeAsync (["help", "select"], CancellationToken.None, stdout, stderr);
+        int exit = await root.InvokeAsync (["help", "select"], cts.Token, stdout, stderr);
 
-        Assert.Equal (ExitCodes.Ok, exit);
-        Assert.Contains ("select", stdout.ToString ());
-        Assert.Contains ("--options", stdout.ToString ());
+        // Pre-cancelled token causes the md viewer to return Cancelled immediately,
+        // proving that help <alias> dispatches through the interactive help viewer.
+        Assert.Equal (ExitCodes.Cancelled, exit);
+        Assert.Empty (stderr.ToString ());
     }
 
     [Fact]
@@ -67,7 +70,7 @@ public class CommandLineRootTests
         int exit = await root.InvokeAsync (["help", "nope"], CancellationToken.None, stdout, stderr);
 
         Assert.Equal (ExitCodes.UsageError, exit);
-        Assert.Contains ("unknown alias", stderr.ToString ());
+        Assert.Contains ("Unknown alias", stderr.ToString ());
     }
 
     [Fact]
@@ -161,17 +164,6 @@ public class CommandLineRootTests
     }
 
     [Fact]
-    public async Task RootHelp_MentionsTitleFlag ()
-    {
-        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
-
-        int exit = await root.InvokeAsync (["--help"], CancellationToken.None, stdout, stderr);
-
-        Assert.Equal (ExitCodes.Ok, exit);
-        Assert.Contains ("--title", stdout.ToString ());
-    }
-
-    [Fact]
     public async Task List_ShortJsonFlag_EmitsJson ()
     {
         (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
@@ -202,6 +194,57 @@ public class CommandLineRootTests
 
         Assert.Equal (ExitCodes.UsageError, exit);
         Assert.Contains ("--initial", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_PositionalArgs_NonPositionalClet_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["int", "42"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("does not accept positional arguments", stderr.ToString ());
+        Assert.Contains ("42", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_PositionalArgs_NonPositionalClet_SingleArg_ShowsInitialHint ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["int", "42"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        string stderrStr = stderr.ToString ();
+        Assert.Contains ("hint:", stderrStr);
+        Assert.Contains ("--initial", stderrStr);
+        Assert.Contains ("42", stderrStr);
+    }
+
+    [Fact]
+    public async Task Alias_PositionalArgs_NonPositionalClet_MultipleArgs_NoHint ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["int", "foo", "bar"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        string stderrStr = stderr.ToString ();
+        Assert.Contains ("does not accept positional arguments", stderrStr);
+        Assert.DoesNotContain ("hint:", stderrStr);
+    }
+
+    [Fact]
+    public async Task Alias_PositionalArgs_NonPositionalClet_SingleDash_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        // bare "-" is treated as a positional arg (not a flag), and should be rejected
+        int exit = await root.InvokeAsync (["int", "-"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("does not accept positional arguments", stderr.ToString ());
     }
 
     [Fact]
@@ -289,5 +332,97 @@ public class CommandLineRootTests
 
         Assert.NotEqual (ExitCodes.ValidationError, exit);
         Assert.DoesNotContain ("input-too-large", stderr.ToString ());
+    }
+
+    [Theory]
+    [InlineData ("color", "not-a-color")]
+    [InlineData ("int", "abc")]
+    [InlineData ("decimal", "xyz")]
+    [InlineData ("date", "not-a-date")]
+    [InlineData ("time", "not-a-time")]
+    [InlineData ("duration", "not-a-duration")]
+    [InlineData ("confirm", "maybe")]
+    // `linear-range` doesn't validate --initial strictly — unmatched labels just produce
+    // an empty span. No "invalid --initial value" path to test, so it isn't in this list.
+    public async Task Alias_InvalidInitialValue_ExitsWithUsageError (string alias, string initial)
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync ([alias, "--initial", initial], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("invalid --initial value", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task MdCat_WithInitial_RendersToStdoutAndExitsOk ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["md", "--cat", "--initial", "# Hello"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.Ok, exit);
+        Assert.NotEmpty (stdout.ToString ());
+        Assert.Empty (stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task MdCat_WithFile_RendersFileToStdout ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+        string tempFile = Path.Combine (Path.GetTempPath (), $"clet-test-{Guid.NewGuid ()}.md");
+
+        try
+        {
+            File.WriteAllText (tempFile, "# Test File\n\nSome content.");
+
+            int exit = await root.InvokeAsync (["md", "--cat", "--allow-file", tempFile, tempFile], CancellationToken.None, stdout, stderr);
+
+            Assert.Equal (ExitCodes.Ok, exit);
+            Assert.NotEmpty (stdout.ToString ());
+        }
+        finally
+        {
+            File.Delete (tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task MdCat_NoContent_ExitsWithIoError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["md", "--cat"], CancellationToken.None, stdout, stderr);
+
+        // When stdin is redirected (test runner / CI), MarkdownClet reads empty stdin
+        // and returns "No input received from stdin". When not redirected, it returns
+        // "No file specified". Both are IO errors.
+        Assert.Equal (ExitCodes.IoError, exit);
+        string err = stderr.ToString ();
+        Assert.True (
+            err.Contains ("No file specified") || err.Contains ("No input received from stdin"),
+            $"Expected IO error message, got: {err}");
+    }
+
+    [Fact]
+    public async Task Alias_OutputMissingValue_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["select", "--output"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("--output", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_ShortOutputMissingValue_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["select", "-o"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("--output", stderr.ToString ());
     }
 }

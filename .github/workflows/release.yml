@@ -1,30 +1,31 @@
 name: Release
 
-# Versioning scheme (mirrors Terminal.Gui):
+# Versioning scheme:
 #
 #   main branch  → v1.0.0-alpha.1, v1.0.0-alpha.2, ...
 #                   (base from csproj <Version>, build number auto-increments)
-#   develop branch → v1.0.0-develop.1, v1.0.0-develop.2, ...
-#                   (tracks main's base version, own build number sequence)
 #
 #   When alpha phase ends, change csproj <Version> to 1.0.0 (no suffix).
 #   Then main produces: v1.0.0, v1.0.1, ... (patch auto-increment).
-#   Develop continues: v1.0.1-develop.1, ...
 #
 # Triggers:
-#   1. Push to main or develop that changes code
-#   2. repository_dispatch from gui-cs/Terminal.Gui
-#   3. Manual workflow_dispatch
+#   1. Push to main that changes code
+#   2. repository_dispatch from gui-cs/Terminal.Gui (any main-branch publish: rc, beta, stable)
+#   3. repository_dispatch from gui-cs/Editor (any main-branch publish)
+#   4. Manual workflow_dispatch
 on:
   push:
     branches: [main, develop]
     paths: ['src/**', 'tests/**']
   repository_dispatch:
-    types: [tg-released, tg-develop-published]
+    types: [tg-main-published, editor-main-published, editor-develop-published]
   workflow_dispatch:
     inputs:
       tg_version:
         description: 'Terminal.Gui version to build against. Leave empty for csproj default.'
+        required: false
+      tge_version:
+        description: 'Terminal.Gui.Editor version to build against. Leave empty for csproj default.'
         required: false
       version_override:
         description: 'Override clet version entirely. Leave empty for auto-computed.'
@@ -44,6 +45,7 @@ jobs:
     outputs:
       clet_version: ${{ steps.version.outputs.clet_version }}
       tg_version: ${{ steps.version.outputs.tg_version }}
+      tge_version: ${{ steps.version.outputs.tge_version }}
       channel: ${{ steps.version.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
@@ -54,34 +56,64 @@ jobs:
       - name: Compute version
         id: version
         shell: bash
+        env:
+          TG_VERSION_INPUT: ${{ github.event.client_payload.tg_version || github.event.inputs.tg_version }}
+          TGE_VERSION_INPUT: ${{ github.event.client_payload.tge_version || github.event.inputs.tge_version }}
+          VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          # --- Determine TG version ---
-          TG_VERSION="${{ github.event.client_payload.tg_version || github.event.inputs.tg_version }}"
-          if [ -z "$TG_VERSION" ]; then
-            TG_VERSION=$(sed -n 's/.*<TerminalGuiVersion[^>]*>\([^<]*\)<.*/\1/p' src/Clet/Clet.csproj | head -1)
+          # --- Validate user-supplied version inputs (prevent script injection) ---
+          # Empty TG_VERSION_INPUT is allowed; the script falls back to the csproj pin below.
+          VERSION_PATTERN='^[0-9A-Za-z._+*-]+$'
+          if [ -n "$TG_VERSION_INPUT" ] && ! [[ "$TG_VERSION_INPUT" =~ $VERSION_PATTERN ]]; then
+            echo "::error::tg_version input contains invalid characters: $TG_VERSION_INPUT"
+            exit 2
           fi
-          echo "tg_version=$TG_VERSION" >> "$GITHUB_OUTPUT"
+          if [ -n "$TGE_VERSION_INPUT" ] && ! [[ "$TGE_VERSION_INPUT" =~ $VERSION_PATTERN ]]; then
+            echo "::error::tge_version input contains invalid characters: $TGE_VERSION_INPUT"
+            exit 2
+          fi
+          if [ -n "$VERSION_OVERRIDE" ] && ! [[ "$VERSION_OVERRIDE" =~ $VERSION_PATTERN ]]; then
+            echo "::error::version_override input contains invalid characters: $VERSION_OVERRIDE"
+            exit 2
+          fi
 
-          # --- Determine channel (main vs develop) ---
-          BRANCH="${GITHUB_REF_NAME}"
-          # For repository_dispatch, default to develop; for workflow_dispatch, use current branch
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            BRANCH="develop"
-          fi
-          if [ "$BRANCH" = "main" ]; then
-            CHANNEL="main"
-          else
+          # --- Determine TG version ---
+          TG_VERSION="$TG_VERSION_INPUT"
+
+          # --- Channel detection ---
+          if [ "${{ github.ref }}" = "refs/heads/develop" ] || [ "${{ github.event.action }}" = "editor-develop-published" ]; then
             CHANNEL="develop"
+          else
+            CHANNEL="main"
           fi
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
 
+          # --- Resolve TG version ---
+          # Dispatch/manual: use the explicitly provided version.
+          # Otherwise: use the Directory.Build.props pin (known-good).
+          if [ -z "$TG_VERSION" ]; then
+            TG_VERSION=$(sed -n 's/.*<TerminalGuiVersion[^>]*>\([^<]*\)<.*/\1/p' Directory.Build.props | head -1)
+          fi
+          echo "tg_version=$TG_VERSION" >> "$GITHUB_OUTPUT"
+
+          # --- Resolve TGE version ---
+          # Dispatch/manual: use the explicitly provided version.
+          # Otherwise: use the Directory.Build.props pin (known-good).
+          TGE_VERSION="$TGE_VERSION_INPUT"
+          if [ -z "$TGE_VERSION" ]; then
+            TGE_VERSION=$(sed -n 's/.*<TerminalGuiEditorVersion[^>]*>\([^<]*\)<.*/\1/p' Directory.Build.props | head -1)
+          fi
+          echo "tge_version=$TGE_VERSION" >> "$GITHUB_OUTPUT"
+
           # --- Determine clet version ---
-          if [ -n "${{ github.event.inputs.version_override }}" ]; then
-            CLET_VERSION="${{ github.event.inputs.version_override }}"
+          if [ -n "$VERSION_OVERRIDE" ]; then
+            CLET_VERSION="$VERSION_OVERRIDE"
             echo "clet_version=$CLET_VERSION" >> "$GITHUB_OUTPUT"
             echo "## Version Resolution" >> "$GITHUB_STEP_SUMMARY"
             echo "- clet version: \`$CLET_VERSION\` (manual override)" >> "$GITHUB_STEP_SUMMARY"
             echo "- TG version: \`$TG_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- TGE version: \`$TGE_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
             echo "- channel: \`$CHANNEL\`" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -100,9 +132,19 @@ jobs:
           MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
           PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
 
-          if [ "$CHANNEL" = "main" ]; then
-            if [ -n "$PHASE" ]; then
-              # Alpha/beta/rc phase: version is BASE-PHASE.N, auto-increment N
+          if [ -n "$PHASE" ]; then
+            if [ "$CHANNEL" = "develop" ]; then
+              # Develop channel: version is BASE-develop.N, auto-increment N
+              LATEST_TAG=$(git tag --list "v${BASE_VERSION}-develop.*" --sort=-v:refname | head -1)
+              if [ -n "$LATEST_TAG" ]; then
+                BUILD_NUM=$(echo "$LATEST_TAG" | sed 's/.*develop\.//' | sed 's/-.*//')
+                BUILD_NUM=$((BUILD_NUM + 1))
+              else
+                BUILD_NUM=1
+              fi
+              CLET_VERSION="${BASE_VERSION}-develop.${BUILD_NUM}"
+            else
+              # Main channel alpha/beta/rc phase: version is BASE-PHASE.N, auto-increment N
               # Find latest tag matching v1.0.0-alpha.*
               LATEST_TAG=$(git tag --list "v${BASE_VERSION}-${PHASE}.*" --sort=-v:refname | head -1)
               if [ -n "$LATEST_TAG" ]; then
@@ -113,6 +155,18 @@ jobs:
                 BUILD_NUM=1
               fi
               CLET_VERSION="${BASE_VERSION}-${PHASE}.${BUILD_NUM}"
+            fi
+          else
+            if [ "$CHANNEL" = "develop" ]; then
+              # Develop channel with stable base: version is MAJOR.MINOR.PATCH-develop.N
+              LATEST_TAG=$(git tag --list "v${BASE_VERSION}-develop.*" --sort=-v:refname | head -1)
+              if [ -n "$LATEST_TAG" ]; then
+                BUILD_NUM=$(echo "$LATEST_TAG" | sed 's/.*develop\.//' | sed 's/-.*//')
+                BUILD_NUM=$((BUILD_NUM + 1))
+              else
+                BUILD_NUM=1
+              fi
+              CLET_VERSION="${BASE_VERSION}-develop.${BUILD_NUM}"
             else
               # Stable phase: version is MAJOR.MINOR.PATCH, auto-increment patch
               LATEST_TAG=$(git tag --list "v${MAJOR}.${MINOR}.*" --sort=-v:refname | grep -v '-' | head -1)
@@ -122,22 +176,13 @@ jobs:
               fi
               CLET_VERSION="${MAJOR}.${MINOR}.${PATCH}"
             fi
-          else
-            # Develop channel: version is BASE-develop.N
-            LATEST_TAG=$(git tag --list "v${BASE_VERSION}-develop.*" --sort=-v:refname | head -1)
-            if [ -n "$LATEST_TAG" ]; then
-              BUILD_NUM=$(echo "$LATEST_TAG" | sed 's/.*develop\.//' | sed 's/-.*//')
-              BUILD_NUM=$((BUILD_NUM + 1))
-            else
-              BUILD_NUM=1
-            fi
-            CLET_VERSION="${BASE_VERSION}-develop.${BUILD_NUM}"
           fi
 
           echo "clet_version=$CLET_VERSION" >> "$GITHUB_OUTPUT"
           echo "## Version Resolution" >> "$GITHUB_STEP_SUMMARY"
           echo "- clet version: \`$CLET_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- TG version: \`$TG_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- TGE version: \`$TGE_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- channel: \`$CHANNEL\`" >> "$GITHUB_STEP_SUMMARY"
 
   build:
@@ -156,6 +201,10 @@ jobs:
     env:
       CLET_VERSION: ${{ needs.resolve-version.outputs.clet_version }}
       TG_VERSION: ${{ needs.resolve-version.outputs.tg_version }}
+      TGE_VERSION: ${{ needs.resolve-version.outputs.tge_version }}
+      # Tells Terminal.Gui drivers to skip real-terminal probing/IO
+      # so the ANSI driver runs on Windows runners without a TTY.
+      DisableRealDriverIO: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -163,18 +212,20 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-          dotnet-quality: 'ga'
+          dotnet-quality: 'preview'
 
       - name: Restore
-        run: dotnet restore -p:TerminalGuiVersion=${{ env.TG_VERSION }}
+        run: dotnet restore -p:TerminalGuiVersion=${{ env.TG_VERSION }} -p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }}
 
       - name: Build
-        run: dotnet build --no-restore -c Release -p:TerminalGuiVersion=${{ env.TG_VERSION }} -p:Version=${{ env.CLET_VERSION }}
+        run: dotnet build --no-restore -c Release -p:TerminalGuiVersion=${{ env.TG_VERSION }} -p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }} -p:Version=${{ env.CLET_VERSION }}
 
       - name: Unit Tests
+        shell: bash
         run: dotnet run --project tests/Clet.UnitTests --no-build -c Release
 
       - name: Integration Tests
+        shell: bash
         run: dotnet run --project tests/Clet.IntegrationTests --no-build -c Release
 
       - name: Publish AOT
@@ -184,10 +235,12 @@ jobs:
           --self-contained
           -p:PublishAot=true
           -p:TerminalGuiVersion=${{ env.TG_VERSION }}
+          -p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }}
           -p:Version=${{ env.CLET_VERSION }}
           -o publish/${{ matrix.rid }}
 
       - name: Smoke Tests
+        shell: bash
         run: dotnet run --project tests/Clet.SmokeTests --no-build -c Release
 
       - name: Upload artifact
@@ -198,8 +251,7 @@ jobs:
           retention-days: 30
 
   # Tag every successful build so future runs can find the latest build number.
-  # Main tags: v1.0.0-alpha.3, v1.0.0 (stable)
-  # Develop tags: v1.0.0-develop.5
+  # Tags: v1.0.0-alpha.3, v1.0.0 (stable)
   tag:
     needs: [resolve-version, build]
     runs-on: ubuntu-latest
@@ -220,7 +272,79 @@ jobs:
             git push origin "v${CLET_VERSION}"
           fi
 
-  # NuGet publish runs on both channels. Prerelease versions (alpha/develop)
+  # Create a GitHub Release with downloadable AOT binaries for each RID.
+  # Prerelease (alpha/beta/rc) versions are flagged so they are not the
+  # default download target.
+  release:
+    needs: [resolve-version, build, tag]
+    runs-on: ubuntu-latest
+    env:
+      CLET_VERSION: ${{ needs.resolve-version.outputs.clet_version }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Package release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          package_unix() {
+            local rid="$1"
+            local src="artifacts/clet-${rid}"
+            if [ ! -d "$src" ]; then
+              echo "::warning::No artifact for ${rid}, skipping"
+              return 0
+            fi
+            chmod +x "$src/clet" 2>/dev/null || true
+            tar -czf "dist/clet-${CLET_VERSION}-${rid}.tar.gz" -C "$src" .
+            echo "Created dist/clet-${CLET_VERSION}-${rid}.tar.gz"
+          }
+
+          package_windows() {
+            local rid="$1"
+            local src="artifacts/clet-${rid}"
+            if [ ! -d "$src" ]; then
+              echo "::warning::No artifact for ${rid}, skipping"
+              return 0
+            fi
+            (cd "$src" && zip -r "../../dist/clet-${CLET_VERSION}-${rid}.zip" .)
+            echo "Created dist/clet-${CLET_VERSION}-${rid}.zip"
+          }
+
+          package_unix   osx-arm64
+          package_unix   linux-x64
+          package_windows win-x64
+
+          ls -la dist/
+
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRERELEASE_FLAG=""
+          if [[ "$CLET_VERSION" == *-* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          if gh release view "v${CLET_VERSION}" >/dev/null 2>&1; then
+            echo "Release v${CLET_VERSION} already exists; uploading assets with --clobber."
+            gh release upload "v${CLET_VERSION}" dist/* --clobber
+          else
+            gh release create "v${CLET_VERSION}" \
+              --title "clet v${CLET_VERSION}" \
+              --generate-notes \
+              $PRERELEASE_FLAG \
+              dist/*
+          fi
+
+  # NuGet publish runs on main only. Prerelease versions (alpha/beta/rc)
   # are hidden from default resolution; consumers opt in via --prerelease.
   publish-nuget:
     needs: [resolve-version, build]
@@ -228,6 +352,7 @@ jobs:
     env:
       CLET_VERSION: ${{ needs.resolve-version.outputs.clet_version }}
       TG_VERSION: ${{ needs.resolve-version.outputs.tg_version }}
+      TGE_VERSION: ${{ needs.resolve-version.outputs.tge_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -235,12 +360,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-          dotnet-quality: 'ga'
+          dotnet-quality: 'preview'
 
       - name: Pack
         run: >
           dotnet pack src/Clet -c Release
           -p:TerminalGuiVersion=${{ env.TG_VERSION }}
+          -p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }}
           -p:Version=${{ env.CLET_VERSION }}
           -o packages/
 
@@ -293,7 +419,7 @@ jobs:
         shell: pwsh
 
   notify-failure:
-    needs: [resolve-version, build, tag, publish-nuget, publish-homebrew, publish-winget]
+    needs: [resolve-version, build, tag, release, publish-nuget, publish-homebrew, publish-winget]
     if: failure()
     runs-on: ubuntu-latest
     env:

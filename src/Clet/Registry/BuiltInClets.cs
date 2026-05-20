@@ -6,7 +6,6 @@ internal static class BuiltInClets
     {
         registry.Register (new SelectClet ());
         registry.Register (new TextClet ());
-        registry.Register (new MultilineTextClet ());
         registry.Register (new IntClet ());
         registry.Register (new DecimalClet ());
         registry.Register (new ConfirmClet ());
@@ -18,7 +17,10 @@ internal static class BuiltInClets
         registry.Register (new AttributePickerClet ());
         registry.Register (new PickFileClet ());
         registry.Register (new PickDirectoryClet ());
-        registry.Register (new RangeClet ());
+        registry.Register (new LinearRangeClet ());
+        registry.Register (new EditorClet ());
         registry.Register (new MarkdownClet ());
+        registry.Register (new ConfigClet ());
+        registry.Register (new HelpClet (registry));
     }
 }
