@@ -3,20 +3,12 @@ using System.Text.Json.Nodes;
 using Terminal.Gui.Configuration;
 using Xunit;
 
-namespace Clet.UnitTests;
-
-/// <summary>
-/// Defines a non-parallel collection for tests that interact with
-/// <see cref="ConfigurationManager"/>, which uses global static state.
-/// </summary>
-[CollectionDefinition (nameof (ConfigurationManagerCollection), DisableParallelization = true)]
-public class ConfigurationManagerCollection;
+namespace Clet.ConfigTests;
 
 /// <summary>
 /// Tests for <see cref="EditorSettings"/> round-tripping through
 /// <see cref="ConfigurationManager"/>.
 /// </summary>
-[Collection (nameof (ConfigurationManagerCollection))]
 public class EditorSettingsTests : IDisposable
 {
     private readonly string _tempDir;
@@ -35,6 +27,14 @@ public class EditorSettingsTests : IDisposable
 
         // Point HOME at our temp directory (used by Save's CM reload on Linux).
         Environment.SetEnvironmentVariable ("HOME", _tempDir);
+
+        // Defensive clean baseline per canonical CM test pattern.
+        if (ConfigurationManager.IsEnabled)
+        {
+            ConfigurationManager.Disable (resetToHardCodedDefaults: true);
+        }
+
+        ConfigurationManager.ThrowOnJsonErrors = true;
 
         // Ensure CM uses the "clet" app name (matches the clet binary; in tests
         // the assembly name is different).
@@ -69,10 +69,12 @@ public class EditorSettingsTests : IDisposable
         Assert.Contains ("EditorSettings.FoldIndicators", EditorSettings.ManagedKeys);
         Assert.Contains ("EditorSettings.WordWrap", EditorSettings.ManagedKeys);
         Assert.Contains ("EditorSettings.ShowTabs", EditorSettings.ManagedKeys);
+        Assert.Contains ("EditorSettings.Scrollbars", EditorSettings.ManagedKeys);
         Assert.Contains ("EditorSettings.IndentSize", EditorSettings.ManagedKeys);
         Assert.Contains ("EditorSettings.ConvertTabsToSpaces", EditorSettings.ManagedKeys);
         Assert.Contains ("EditorSettings.AutoIndent", EditorSettings.ManagedKeys);
-        Assert.Equal (7, EditorSettings.ManagedKeys.Count);
+        Assert.Contains ("EditorSettings.AutoComplete", EditorSettings.ManagedKeys);
+        Assert.Equal (9, EditorSettings.ManagedKeys.Count);
     }
 
     [Fact]
@@ -96,9 +98,11 @@ public class EditorSettingsTests : IDisposable
         EditorSettings.FoldIndicators = false;
         EditorSettings.WordWrap = true;
         EditorSettings.ShowTabs = true;
+        EditorSettings.Scrollbars = false;
         EditorSettings.IndentSize = 2;
         EditorSettings.ConvertTabsToSpaces = false;
         EditorSettings.AutoIndent = true;
+        EditorSettings.AutoComplete = true;
 
         // Write a minimal config file so Save can insert into it
         File.WriteAllText (_configPath, "{}");
@@ -124,9 +128,11 @@ public class EditorSettingsTests : IDisposable
         Assert.False ((bool)obj["EditorSettings.FoldIndicators"]!);
         Assert.True ((bool)obj["EditorSettings.WordWrap"]!);
         Assert.True ((bool)obj["EditorSettings.ShowTabs"]!);
+        Assert.False ((bool)obj["EditorSettings.Scrollbars"]!);
         Assert.Equal (2, (int)obj["EditorSettings.IndentSize"]!);
         Assert.False ((bool)obj["EditorSettings.ConvertTabsToSpaces"]!);
         Assert.True ((bool)obj["EditorSettings.AutoIndent"]!);
+        Assert.True ((bool)obj["EditorSettings.AutoComplete"]!);
     }
 
     [Fact]
@@ -284,16 +290,15 @@ public class EditorSettingsTests : IDisposable
     [Fact]
     public void RoundTrip_LoadApply_RestoresPersistedValues ()
     {
-        // Ensure CM starts disabled so Enable(Runtime) is not a no-op on any platform.
-        ConfigurationManager.Disable (resetToHardCodedDefaults: true);
-
         // Arrange — JSON with non-default values
         string json = """
             {
               "EditorSettings.LineNumbers": false,
               "EditorSettings.IndentSize": 8,
               "EditorSettings.WordWrap": true,
-              "EditorSettings.AutoIndent": true
+              "EditorSettings.AutoIndent": true,
+              "EditorSettings.Scrollbars": false,
+              "EditorSettings.AutoComplete": true
             }
             """;
 
@@ -302,6 +307,8 @@ public class EditorSettingsTests : IDisposable
         EditorSettings.IndentSize = 4;
         EditorSettings.WordWrap = false;
         EditorSettings.AutoIndent = false;
+        EditorSettings.Scrollbars = true;
+        EditorSettings.AutoComplete = false;
 
         // Act — load via RuntimeConfig (cross-platform; avoids ~ resolution
         // issues on Windows where GetFolderPath ignores env var changes).
@@ -313,14 +320,13 @@ public class EditorSettingsTests : IDisposable
         Assert.Equal (8, EditorSettings.IndentSize);
         Assert.True (EditorSettings.WordWrap);
         Assert.True (EditorSettings.AutoIndent);
+        Assert.False (EditorSettings.Scrollbars);
+        Assert.True (EditorSettings.AutoComplete);
     }
 
     [Fact]
     public void RoundTrip_SaveThenLoad_RestoresValues ()
     {
-        // Ensure CM starts disabled so Enable(Runtime) is not a no-op on any platform.
-        ConfigurationManager.Disable (resetToHardCodedDefaults: true);
-
         // Arrange — write initial config, set non-default values, save
         File.WriteAllText (_configPath, "{}");
 
@@ -379,8 +385,6 @@ public class EditorSettingsTests : IDisposable
     [Fact]
     public void Defaults_AreCorrect ()
     {
-        // Ensure CM starts disabled so Enable() is not a no-op on any platform.
-        ConfigurationManager.Disable (resetToHardCodedDefaults: true);
         ConfigurationManager.Enable (ConfigLocations.None);
         ConfigurationManager.Load (ConfigLocations.HardCoded);
         ConfigurationManager.Apply ();
@@ -389,17 +393,16 @@ public class EditorSettingsTests : IDisposable
         Assert.True (EditorSettings.FoldIndicators);
         Assert.False (EditorSettings.WordWrap);
         Assert.False (EditorSettings.ShowTabs);
+        Assert.True (EditorSettings.Scrollbars);
         Assert.Equal (4, EditorSettings.IndentSize);
         Assert.True (EditorSettings.ConvertTabsToSpaces);
         Assert.False (EditorSettings.AutoIndent);
+        Assert.False (EditorSettings.AutoComplete);
     }
 
     [Fact]
     public void AllowedPaths_RoundTrip_CM_LoadsArrayFromRuntimeConfig ()
     {
-        // Ensure CM starts disabled so Enable(Runtime) is not a no-op on any platform.
-        ConfigurationManager.Disable (resetToHardCodedDefaults: true);
-
         // Arrange — reset in-memory value to empty
         List<string> savedPaths = [.. FileAccessSettings.AllowedPaths];
         FileAccessSettings.AllowedPaths = [];
