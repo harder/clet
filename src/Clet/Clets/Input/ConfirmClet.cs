@@ -30,7 +30,7 @@ internal sealed class ConfirmClet : IClet<bool?>
     {
         OptionSelector selector = new ()
         {
-            Labels = ["_Yes", "_No"],
+            Labels = [Terminal.Gui.Resources.Strings.btnYes, Terminal.Gui.Resources.Strings.btnNo],
             AssignHotKeys = true,
         };
 

@@ -1228,9 +1228,9 @@ internal sealed class EditorClet : IViewerClet
             statusBar.ThemeDropDown,
             loadStatusShortcut,
             statusBar.OverwriteShortcut,
-            new Shortcut (Application.GetDefaultKey (Command.Quit), "Quit", QuitEditor),
-            new Shortcut (Key.F2, "Open", OpenFile),
-            new Shortcut (Key.F3, "Save", () => SaveFile ()),
+            new Shortcut (Application.GetDefaultKey (Command.Quit), Terminal.Gui.Resources.Strings.cmdQuit, QuitEditor),
+            new Shortcut (Key.F2, Terminal.Gui.Resources.Strings.cmdOpen, OpenFile),
+            new Shortcut (Key.F3, Terminal.Gui.Resources.Strings.cmdSave, () => SaveFile ()),
             statusBar.LocShortcut);
 
         // --- Assemble window ---
@@ -1264,37 +1264,37 @@ internal sealed class EditorClet : IViewerClet
                         break;
 
                     case 1: // Allow once — add dir to the session policy only
+                    {
+                        files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
+
+                        if (files.Count > 0)
                         {
-                            files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
-
-                            if (files.Count > 0)
-                            {
-                                filePath = files[0];
-                                fileName = Path.GetFileName (filePath);
-                                lastDirectory = Path.GetDirectoryName (filePath);
-                                window.Title = fileName;
-                                RebuildFileSelectorItems ();
-                            }
-
-                            break;
+                            filePath = files[0];
+                            fileName = Path.GetFileName (filePath);
+                            lastDirectory = Path.GetDirectoryName (filePath);
+                            window.Title = fileName;
+                            RebuildFileSelectorItems ();
                         }
+
+                        break;
+                    }
 
                     case 2: // Add to config — persist the directory and allow now
+                    {
+                        FileAccessSettings.AddToConfig (dir);
+                        files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
+
+                        if (files.Count > 0)
                         {
-                            FileAccessSettings.AddToConfig (dir);
-                            files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
-
-                            if (files.Count > 0)
-                            {
-                                filePath = files[0];
-                                fileName = Path.GetFileName (filePath);
-                                lastDirectory = Path.GetDirectoryName (filePath);
-                                window.Title = fileName;
-                                RebuildFileSelectorItems ();
-                            }
-
-                            break;
+                            filePath = files[0];
+                            fileName = Path.GetFileName (filePath);
+                            lastDirectory = Path.GetDirectoryName (filePath);
+                            window.Title = fileName;
+                            RebuildFileSelectorItems ();
                         }
+
+                        break;
+                    }
 
                     default:
                         return;
