@@ -11,7 +11,6 @@ using Terminal.Gui.Input;
 using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
-using TextMateSharp.Grammars;
 using Command = Terminal.Gui.Input.Command;
 
 namespace Clet;
@@ -35,7 +34,7 @@ internal sealed class EditorClet : IViewerClet
     [
         new ("readonly", "r", typeof (bool),
             "Open the file in read-only mode.",
-            false, "false"),
+            false, "false")
     ];
 
     public async Task<CletRunResult> RunAsync (
@@ -54,7 +53,7 @@ internal sealed class EditorClet : IViewerClet
         List<string> files = [];
         string cwd = Directory.GetCurrentDirectory ();
         IReadOnlyList<string> args = options.Arguments ?? [];
-        string? pendingDeniedPath = null;   // set when access is denied; drives dialog
+        string? pendingDeniedPath = null; // set when access is denied; drives dialog
 
         FileAccessPolicy BuildPolicy (IReadOnlyList<string>? extraAllowed = null)
         {
@@ -67,7 +66,7 @@ internal sealed class EditorClet : IViewerClet
                     : [.. extraAllowed];
             }
 
-            return new (cwd, merged, options.AllowBinary, allowAllExtensions: true);
+            return new (cwd, merged, options.AllowBinary, true);
         }
 
         if (args.Count > 0)
@@ -109,7 +108,7 @@ internal sealed class EditorClet : IViewerClet
         // When access was denied, use the intended path for the window title.
         string? fileName = (filePath ?? pendingDeniedPath) is { } fp ? Path.GetFileName (fp) : null;
         string? lastDirectory = filePath is not null ? Path.GetDirectoryName (filePath) : null;
-        string? savedText = string.Empty;
+        string? savedText;
         bool accessDialogCancelled = false;
 
         bool readOnly = options.CletOptions?.TryGetValue ("readonly", out string? roVal) == true
@@ -122,7 +121,7 @@ internal sealed class EditorClet : IViewerClet
             Title = fileName ?? "Untitled",
             Width = Dim.Fill (),
             Height = Dim.Fill (),
-            BorderStyle = LineStyle.None,
+            BorderStyle = LineStyle.None
         };
 
         // --- Settings are loaded by ConfigurationManager via [ConfigurationProperty] ---
@@ -141,7 +140,7 @@ internal sealed class EditorClet : IViewerClet
             CompletionProvider = EditorSettings.AutoComplete ? new WordCompletionProvider () : null,
             ViewportSettings = EditorSettings.Scrollbars
                 ? ViewportSettingsFlags.HasScrollBars
-                : ViewportSettingsFlags.None,
+                : ViewportSettingsFlags.None
         };
 
         // Apply gutter options from settings
@@ -197,7 +196,7 @@ internal sealed class EditorClet : IViewerClet
         Markdown? markdownPreview = null;
         bool syncingScroll = false;
         bool isMarkdownFile = filePath is not null
-            && Path.GetExtension (filePath).Equals (".md", StringComparison.OrdinalIgnoreCase);
+                              && Path.GetExtension (filePath).Equals (".md", StringComparison.OrdinalIgnoreCase);
 
         // View-menu toggle item — declared early so preview state helpers can reference it.
         MenuItem previewMarkdownItem = new () { Title = "  _Preview Markdown", Enabled = isMarkdownFile };
@@ -283,7 +282,7 @@ internal sealed class EditorClet : IViewerClet
                 return;
             }
 
-            markdownPreview = new Markdown ()
+            markdownPreview = new Markdown
             {
                 X = Pos.Right (editor),
                 Y = editor.Y,
@@ -291,7 +290,7 @@ internal sealed class EditorClet : IViewerClet
                 Height = editor.Height,
                 Text = editor.Document?.Text ?? string.Empty,
                 ViewportSettings = ViewportSettingsFlags.HasScrollBars,
-                SyntaxHighlighter = new TextMateSyntaxHighlighter (ThemeName.DarkPlus),
+                SyntaxHighlighter = new TextMateSyntaxHighlighter ()
             };
 
             editor.Width = Dim.Percent (50);
@@ -407,13 +406,16 @@ internal sealed class EditorClet : IViewerClet
             Source = new ListWrapper<string> (fileSelectorDisplayNames),
             ReadOnly = true,
             Text = fileName ?? "<untitled>",
-            Width = Dim.Auto (DimAutoStyle.Text, minimumContentDim: 12),
-            SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog),
+            CanFocus = false,
+            Width = Dim.Auto (DimAutoStyle.Text, 12),
         };
 
         // --- Local state helpers ---
 
-        bool UnsavedChanges () => editor.Document?.UndoStack.IsOriginalFile == false;
+        bool UnsavedChanges ()
+        {
+            return editor.Document?.UndoStack.IsOriginalFile == false;
+        }
 
         void UpdateModifiedIndicator ()
         {
@@ -437,7 +439,6 @@ internal sealed class EditorClet : IViewerClet
         {
             switchingFileSelector = true;
             filenameDropDown.Text = GetFileDisplayName (filePath);
-            filenameDropDown.SetNeedsDraw ();
             switchingFileSelector = false;
         }
 
@@ -483,7 +484,8 @@ internal sealed class EditorClet : IViewerClet
 
         void UpdateSyntaxLanguage (string path)
         {
-            editor.HighlightingDefinition = HighlightingManager.Instance.GetDefinitionByExtension (Path.GetExtension (path));
+            editor.HighlightingDefinition =
+                HighlightingManager.Instance.GetDefinitionByExtension (Path.GetExtension (path));
             statusBar.UpdateLanguageShortcut ();
         }
 
@@ -943,7 +945,7 @@ internal sealed class EditorClet : IViewerClet
                 app,
                 "Unsaved Changes",
                 $"Save changes to {fileName ?? "Untitled"}?",
-                "Cancel", "No", "Yes");
+                "Cancel", "_No", "_Yes");
 
             if (result is null or 0)
             {
@@ -956,31 +958,6 @@ internal sealed class EditorClet : IViewerClet
             }
 
             return true;
-        }
-
-        void NewFile ()
-        {
-            if (!PromptSaveIfDirty ())
-            {
-                return;
-            }
-
-            filePath = null;
-            fileName = null;
-            lastFileByteSize = 0;
-            lastStatusVerb = "Loaded";
-            savedText = string.Empty;
-            editor.ClearSelection ();
-            editor.Document = new TextDocument ();
-            editor.CaretOffset = 0;
-            editor.HighlightingDefinition = null;
-            InstallFolding ();
-            UpdateModifiedIndicator ();
-            statusBar.UpdateLanguageShortcut ();
-            UpdateFileSelectorText ();
-            UpdateModifiedStatus ();
-            isMarkdownFile = false;
-            UpdatePreviewEnabled ();
         }
 
         string? ShowOpenDialog ()
@@ -996,7 +973,7 @@ internal sealed class EditorClet : IViewerClet
                 AllowsMultipleSelection = false,
                 AllowedTypes = [new AllowedTypeAny ()],
                 MustExist = true,
-                OpenMode = OpenMode.File,
+                OpenMode = OpenMode.File
             };
 
             if (lastDirectory is not null)
@@ -1059,7 +1036,7 @@ internal sealed class EditorClet : IViewerClet
             {
                 Title = "About clet edit",
                 Width = Dim.Percent (50),
-                Height = 12,
+                Height = 12
             };
 
             Label info = new ()
@@ -1068,12 +1045,12 @@ internal sealed class EditorClet : IViewerClet
                 Y = 0,
                 Width = Dim.Fill (1),
                 Text = $"""
-                         clet {VersionInfo.GetCletVersion ()}
-                         Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()}
-                         Terminal.Gui.Editor {editorVersion}
+                        clet {VersionInfo.GetCletVersion ()}
+                        Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()}
+                        Terminal.Gui.Editor {editorVersion}
 
-                         https://github.com/gui-cs/clet
-                         """,
+                        https://github.com/gui-cs/clet
+                        """
             };
 
             Button ok = new () { Text = "OK", X = Pos.Center (), Y = Pos.Bottom (info) + 1, IsDefault = true };
@@ -1123,7 +1100,7 @@ internal sealed class EditorClet : IViewerClet
         };
 
         menu.ShowOpenDialog = ShowOpenDialog;
-        menu.ShowSaveDialog = () => ShowSaveAsDialogPath ();
+        menu.ShowSaveDialog = ShowSaveAsDialogPath;
         menu.NewRequested += (_, _) => NewFile ();
         menu.OpenRequested += (_, e) => LoadFile (e.FilePath);
         menu.SaveRequested += (_, _) => SaveFile ();
@@ -1131,14 +1108,17 @@ internal sealed class EditorClet : IViewerClet
         menu.QuitRequested += (_, _) => QuitEditor ();
         menu.ViewSettingsChanged += (_, _) => SaveViewSettings ();
         menu.ViewMenu.PopoverMenu!.Root!.Add (new Line (), previewMarkdownItem);
+
         menu.Add (new MenuBarItem ("_Options",
         [
-            new MenuItem { Title = "_Settings...", Action = ShowSettings },
+            new MenuItem { Title = "_Settings...", Action = ShowSettings }
         ]));
+
         menu.Add (new MenuBarItem ("_Help",
         [
-            new MenuItem { Title = "_About", Action = ShowAbout },
+            new MenuItem { Title = "_About", Action = ShowAbout }
         ]));
+
         filenameDropDown.ValueChanged += (_, _) =>
         {
             if (switchingFileSelector)
@@ -1176,7 +1156,7 @@ internal sealed class EditorClet : IViewerClet
         {
             CommandView = filenameDropDown,
             MouseHighlightStates = MouseState.None,
-            SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog),
+            SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog)
         };
         menu.Add (filenameShortcut);
 
@@ -1238,37 +1218,37 @@ internal sealed class EditorClet : IViewerClet
                 switch (choice)
                 {
                     case 0: // Allow once — add dir to the session policy only
+                    {
+                        files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
+
+                        if (files.Count > 0)
                         {
-                            files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
-
-                            if (files.Count > 0)
-                            {
-                                filePath = files[0];
-                                fileName = Path.GetFileName (filePath);
-                                lastDirectory = Path.GetDirectoryName (filePath);
-                                window.Title = fileName;
-                                RebuildFileSelectorItems ();
-                            }
-
-                            break;
+                            filePath = files[0];
+                            fileName = Path.GetFileName (filePath);
+                            lastDirectory = Path.GetDirectoryName (filePath);
+                            window.Title = fileName;
+                            RebuildFileSelectorItems ();
                         }
+
+                        break;
+                    }
 
                     case 1: // Add to config — persist the directory and allow now
+                    {
+                        FileAccessSettings.AddToConfig (dir);
+                        files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
+
+                        if (files.Count > 0)
                         {
-                            FileAccessSettings.AddToConfig (dir);
-                            files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
-
-                            if (files.Count > 0)
-                            {
-                                filePath = files[0];
-                                fileName = Path.GetFileName (filePath);
-                                lastDirectory = Path.GetDirectoryName (filePath);
-                                window.Title = fileName;
-                                RebuildFileSelectorItems ();
-                            }
-
-                            break;
+                            filePath = files[0];
+                            fileName = Path.GetFileName (filePath);
+                            lastDirectory = Path.GetDirectoryName (filePath);
+                            window.Title = fileName;
+                            RebuildFileSelectorItems ();
                         }
+
+                        break;
+                    }
 
                     default: // Cancel
                         accessDialogCancelled = true;
@@ -1315,6 +1295,31 @@ internal sealed class EditorClet : IViewerClet
         }
 
         return new () { Status = CletRunStatus.Ok };
+
+        void NewFile ()
+        {
+            if (!PromptSaveIfDirty ())
+            {
+                return;
+            }
+
+            filePath = null;
+            fileName = null;
+            lastFileByteSize = 0;
+            lastStatusVerb = "Loaded";
+            savedText = string.Empty;
+            editor.ClearSelection ();
+            editor.Document = new TextDocument ();
+            editor.CaretOffset = 0;
+            editor.HighlightingDefinition = null;
+            InstallFolding ();
+            UpdateModifiedIndicator ();
+            statusBar.UpdateLanguageShortcut ();
+            UpdateFileSelectorText ();
+            UpdateModifiedStatus ();
+            isMarkdownFile = false;
+            UpdatePreviewEnabled ();
+        }
     }
 
     private static Task InvokeOnAppAsync (IApplication app, Action action)
