@@ -15,7 +15,7 @@ public class ConfirmCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<bool?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -57,3 +57,4 @@ public class ConfirmCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

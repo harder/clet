@@ -5,7 +5,6 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.Drivers;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
-using TextMateSharp.Grammars;
 
 namespace Clet;
 
@@ -89,7 +88,7 @@ internal static class MarkdownHelpRenderer
             Markdown markdownView = new ()
             {
                 App = app,
-                SyntaxHighlighter = new TextMateSyntaxHighlighter (ThemeName.DarkPlus),
+                SyntaxHighlighter = new TextMateSyntaxHighlighter (),
                 UseThemeBackground = false,
                 ShowCopyButtons = false,
                 Width = Dim.Fill (),

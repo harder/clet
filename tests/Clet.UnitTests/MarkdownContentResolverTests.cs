@@ -9,7 +9,7 @@ public class MarkdownContentResolverTests
     {
         CletRunOptions options = new ();
 
-        var result = MarkdownContentResolver.Resolve ("# Hello", options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Hello", options, stdinReader: null);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# Hello", result.Content);
@@ -22,7 +22,7 @@ public class MarkdownContentResolverTests
         CletRunOptions options = new ();
         using StringReader stdin = new ("stdin content");
 
-        var result = MarkdownContentResolver.Resolve ("# Inline", options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Inline", options, stdin);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# Inline", result.Content);
@@ -34,7 +34,7 @@ public class MarkdownContentResolverTests
         CletRunOptions options = new ();
         using StringReader stdin = new ("# From Stdin");
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdin);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# From Stdin", result.Content);
@@ -47,7 +47,7 @@ public class MarkdownContentResolverTests
         CletRunOptions options = new ();
         using StringReader stdin = new ("");
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdin);
 
         Assert.False (result.IsSuccess);
         Assert.Equal ("io", result.ErrorCode);
@@ -58,7 +58,7 @@ public class MarkdownContentResolverTests
     {
         CletRunOptions options = new ();
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
         Assert.False (result.IsSuccess);
         Assert.Equal ("io", result.ErrorCode);
@@ -79,7 +79,7 @@ public class MarkdownContentResolverTests
             // Use AllowedFiles to bypass CWD confinement — avoids process-global CWD race
             CletRunOptions options = new () { Arguments = [file], AllowedFiles = [tempDir] };
 
-            var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+            MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
             Assert.True (result.IsSuccess);
             Assert.Equal ("# Test File", result.Content);
@@ -96,7 +96,7 @@ public class MarkdownContentResolverTests
     {
         CletRunOptions options = new () { Arguments = ["/nonexistent/file.md"] };
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
         Assert.False (result.IsSuccess);
     }
@@ -114,7 +114,7 @@ public class MarkdownContentResolverTests
 
             CletRunOptions options = new () { Arguments = [file], AllowedFiles = [tempDir] };
 
-            var result = MarkdownContentResolver.Resolve ("# Inline", options, stdinReader: null);
+            MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Inline", options, stdinReader: null);
 
             Assert.True (result.IsSuccess);
             Assert.Equal ("# From File", result.Content);

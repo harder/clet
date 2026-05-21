@@ -11,28 +11,8 @@ internal static class CletProcess
         TimeSpan? processTimeout = null,
         string? stdin = null)
     {
-        ProcessStartInfo psi = new ()
-        {
-            FileName = "dotnet",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = stdin is not null,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+        using Process process = CreateProcess (args, stdin);
 
-        psi.Environment["DisableRealDriverIO"] = "1";
-
-        psi.ArgumentList.Add ("exec");
-        psi.ArgumentList.Add (CletAssemblyPath);
-
-        foreach (string a in args)
-        {
-            psi.ArgumentList.Add (a);
-        }
-
-        using Process process = new ();
-        process.StartInfo = psi;
         process.Start ();
 
         if (stdin is not null)
@@ -75,6 +55,46 @@ internal static class CletProcess
         string stderr = await stderrTask;
 
         return (process.ExitCode, stdout, stderr);
+    }
+
+    private static Process CreateProcess (IEnumerable<string> args, string? stdin)
+    {
+        ProcessStartInfo startInfo = new ()
+        {
+            FileName = "dotnet",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = stdin is not null,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            Environment =
+            {
+                ["DisableRealDriverIO"] = "1",
+            },
+        };
+
+        startInfo.ArgumentList.Add ("exec");
+        startInfo.ArgumentList.Add (CletAssemblyPath);
+
+        foreach (string a in args)
+        {
+            startInfo.ArgumentList.Add (a);
+        }
+
+        Process process = new ()
+        {
+            StartInfo = startInfo,
+        };
+
+        try
+        {
+            return process;
+        }
+        catch
+        {
+            process.Dispose ();
+            throw;
+        }
     }
 
     private static string LocateCletAssembly ()

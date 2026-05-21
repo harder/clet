@@ -19,7 +19,7 @@ public class MultiSelectCletIntegrationTests
         };
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<JsonArray?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -67,3 +67,4 @@ public class MultiSelectCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

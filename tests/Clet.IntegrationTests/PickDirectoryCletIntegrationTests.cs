@@ -15,7 +15,7 @@ public class PickDirectoryCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -40,3 +40,4 @@ public class PickDirectoryCletIntegrationTests
         Assert.True (result.Status == CletRunStatus.Ok || result.Status == CletRunStatus.Cancelled);
     }
 }
+

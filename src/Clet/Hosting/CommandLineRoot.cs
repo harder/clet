@@ -1,22 +1,14 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json.Nodes;
 
 namespace Clet;
 
-internal sealed class CommandLineRoot
+internal sealed class CommandLineRoot (ICletRegistry registry)
 {
     /// <summary>64 K character cap on --initial to prevent OOM from untrusted input.</summary>
     internal const int MaxInitialChars = 64 * 1024;
 
-    private readonly ICletRegistry _registry;
-    private readonly AliasDispatcher _dispatcher;
-
-    public CommandLineRoot (ICletRegistry registry)
-    {
-        _registry = registry;
-        _dispatcher = new (registry);
-    }
+    private readonly AliasDispatcher _dispatcher = new (registry);
 
     public async Task<int> InvokeAsync (
         string[] args,
@@ -40,7 +32,7 @@ internal sealed class CommandLineRoot
                 return ExitCodes.Ok;
 
             case "--version":
-                stdout.WriteLine ($"{GetVersion ()} (Terminal.Gui {GetTerminalGuiVersion ()})");
+                await stdout.WriteLineAsync ($"{GetVersion ()} (Terminal.Gui {GetTerminalGuiVersion ()})");
 
                 return ExitCodes.Ok;
 
@@ -62,7 +54,7 @@ internal sealed class CommandLineRoot
         // Support `clet <alias> help`, `clet <alias> --help`, `clet <alias> -h`
         // Rewrite as `clet help <alias> [--cat]` and re-dispatch.
         // Skip when alias is already "help" to avoid infinite recursion.
-        if (alias != "help" && args.Length >= 2 && args[1] is "help" or "--help" or "-h")
+        if (args is [not "help", "help" or "--help" or "-h", ..])
         {
             List<string> helpArgs = ["help", alias];
 
@@ -131,7 +123,7 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --allow-file requires a file path.");
+                    await stderr.WriteLineAsync ("error: --allow-file requires a file path.");
 
                     return ExitCodes.UsageError;
                 }
@@ -145,14 +137,14 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --timeout requires a value (e.g. 30s, 500ms).");
+                    await stderr.WriteLineAsync ("error: --timeout requires a value (e.g. 30s, 500ms).");
 
                     return ExitCodes.UsageError;
                 }
 
                 if (!TryParseTimeout (args[++i], out TimeSpan parsed))
                 {
-                    stderr.WriteLine ($"error: invalid --timeout value '{args[i]}'. Use 30s, 1m, 500ms.");
+                    await stderr.WriteLineAsync ($"error: invalid --timeout value '{args[i]}'. Use 30s, 1m, 500ms.");
 
                     return ExitCodes.UsageError;
                 }
@@ -166,7 +158,7 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --initial requires a value.");
+                    await stderr.WriteLineAsync ("error: --initial requires a value.");
 
                     return ExitCodes.UsageError;
                 }
@@ -191,7 +183,7 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --title requires a value.");
+                    await stderr.WriteLineAsync ("error: --title requires a value.");
 
                     return ExitCodes.UsageError;
                 }
@@ -205,7 +197,7 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --output requires a file path.");
+                    await stderr.WriteLineAsync ("error: --output requires a file path.");
 
                     return ExitCodes.UsageError;
                 }
@@ -219,14 +211,14 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ("error: --rows requires a value.");
+                    await stderr.WriteLineAsync ("error: --rows requires a value.");
 
                     return ExitCodes.UsageError;
                 }
 
                 if (!int.TryParse (args[++i], out int parsedRows) || parsedRows < 1)
                 {
-                    stderr.WriteLine ($"error: invalid --rows value '{args[i]}'. Must be a positive integer.");
+                    await stderr.WriteLineAsync ($"error: invalid --rows value '{args[i]}'. Must be a positive integer.");
 
                     return ExitCodes.UsageError;
                 }
@@ -240,7 +232,7 @@ internal sealed class CommandLineRoot
             {
                 if (i + 1 >= args.Length)
                 {
-                    stderr.WriteLine ($"error: option '{arg}' requires a value.");
+                    await stderr.WriteLineAsync ($"error: option '{arg}' requires a value.");
 
                     return ExitCodes.UsageError;
                 }
@@ -272,16 +264,15 @@ internal sealed class CommandLineRoot
         // Validate positional args before dispatching.
         // Look up the clet here (cheap dictionary lookup) so we can gate on AcceptsPositionalArgs.
         if (positionalArgs.Count > 0
-            && _registry.TryResolve (alias, out IClet? clet)
-            && clet is not null
-            && !clet.AcceptsPositionalArgs)
+            && registry.TryResolve (alias, out IClet? clet)
+            && clet is { AcceptsPositionalArgs: false })
         {
             string joined = string.Join (" ", positionalArgs);
-            stderr.WriteLine ($"error: '{alias}' does not accept positional arguments: {joined}");
+            await stderr.WriteLineAsync ($"error: '{alias}' does not accept positional arguments: {joined}");
 
             if (positionalArgs.Count == 1)
             {
-                stderr.WriteLine ($"hint: did you mean 'clet {alias} --initial {positionalArgs[0]}'?");
+                await stderr.WriteLineAsync ($"hint: did you mean 'clet {alias} --initial {positionalArgs[0]}'?");
             }
 
             return ExitCodes.UsageError;
@@ -301,7 +292,7 @@ internal sealed class CommandLineRoot
             return ExitCodes.Ok;
         }
 
-        foreach (IClet clet in _registry.All)
+        foreach (IClet clet in registry.All)
         {
             stdout.WriteLine ($"{clet.PrimaryAlias} - {clet.Description}");
         }
@@ -317,7 +308,7 @@ internal sealed class CommandLineRoot
 
         bool first = true;
 
-        foreach (IClet clet in _registry.All)
+        foreach (IClet clet in registry.All)
         {
             if (!first)
             {
@@ -441,7 +432,7 @@ internal sealed class CommandLineRoot
         }
 
         // Inject dynamic content into the template
-        string cletTable = MarkdownHelpRenderer.BuildCletTableMarkdown (_registry).TrimEnd ();
+        string cletTable = MarkdownHelpRenderer.BuildCletTableMarkdown (registry).TrimEnd ();
         markdown = markdown.Replace ("{{CLET_TABLE}}", cletTable);
         markdown = markdown.Replace ("{{VERSION}}", $"v{GetVersion ()} (Terminal.Gui {GetTerminalGuiVersion ()})");
 
@@ -456,7 +447,7 @@ internal sealed class CommandLineRoot
 
     public static bool TryParseTimeout (string input, out TimeSpan timeout)
     {
-        timeout = default;
+        timeout = TimeSpan.Zero;
 
         if (string.IsNullOrEmpty (input))
         {

@@ -12,12 +12,7 @@ namespace Clet.ConfigTests;
 /// </summary>
 public class FileAccessSettingsTests : IDisposable
 {
-    private readonly List<string> _originalPaths;
-
-    public FileAccessSettingsTests ()
-    {
-        _originalPaths = [.. FileAccessSettings.AllowedPaths];
-    }
+    private readonly List<string> _originalPaths = [.. FileAccessSettings.AllowedPaths];
 
     public void Dispose ()
     {

@@ -13,7 +13,7 @@ public class BuiltInCletsTests
 
         Assert.True (registry.TryResolve ("select", out IClet? clet));
         Assert.NotNull (clet);
-        Assert.Equal ("select", clet!.PrimaryAlias);
+        Assert.Equal ("select", clet.PrimaryAlias);
         Assert.Equal (CletKind.Input, clet.Kind);
     }
 
@@ -45,7 +45,7 @@ public class BuiltInCletsTests
 
         Assert.True (registry.TryResolve (alias, out IClet? clet));
         Assert.NotNull (clet);
-        Assert.Equal (CletKind.Input, clet!.Kind);
+        Assert.Equal (CletKind.Input, clet.Kind);
     }
 
     [Theory]
@@ -62,7 +62,7 @@ public class BuiltInCletsTests
 
         Assert.True (registry.TryResolve (alias, out IClet? clet));
         Assert.NotNull (clet);
-        Assert.Equal (CletKind.Viewer, clet!.Kind);
+        Assert.Equal (CletKind.Viewer, clet.Kind);
     }
 
     [Fact]

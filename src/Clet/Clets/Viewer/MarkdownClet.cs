@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
-using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using TextMateSharp.Grammars;
@@ -11,9 +10,6 @@ namespace Clet;
 
 internal sealed class MarkdownClet : IViewerClet
 {
-    /// <summary>8 M character cap on stdin content to prevent OOM from untrusted piped input.</summary>
-    internal const int MaxStdinChars = MarkdownContentResolver.MaxStdinChars;
-
     public string PrimaryAlias => "md";
     public IReadOnlyList<string> Aliases => ["md", "markdown"];
     public string Description => "Browse and render Markdown files with link navigation and syntax highlighting.";
@@ -48,7 +44,7 @@ internal sealed class MarkdownClet : IViewerClet
 
         // Resolve content: file args → inline content → stdin → error
         TextReader? stdinReader = Console.IsInputRedirected ? Console.In : null;
-        var resolved = MarkdownContentResolver.Resolve (content, options, stdinReader);
+        MarkdownContentResolver.ResolveResult resolved = MarkdownContentResolver.Resolve (content, options, stdinReader);
 
         if (!resolved.IsSuccess)
         {
@@ -115,8 +111,10 @@ internal sealed class MarkdownClet : IViewerClet
         // Browser mode: back/forward shortcuts for bottom StatusBar
         if (browseMode)
         {
-            browseBar = new BrowseBar (currentFile);
-            browseBar.OnNavigate = path => LoadFile (path);
+            browseBar = new BrowseBar (currentFile)
+            {
+                OnNavigate = path => LoadFile (path),
+            };
         }
 
         // --- MarkdownView event wiring ---
@@ -133,10 +131,12 @@ internal sealed class MarkdownClet : IViewerClet
                     }
 
                     // Navigate local .md files within the sandbox
-                    if (currentFileDir is not null && TryResolveLocalMarkdownLink (url, currentFileDir, linkPolicy, out string? resolvedPath, out string? fragment))
+                    if (currentFileDir is not null
+                        && TryResolveLocalMarkdownLink (url, currentFileDir, linkPolicy, out string? resolvedPath, out string? fragment)
+                        && resolvedPath is not null)
                     {
-                        browseBar!.Push (resolvedPath!);
-                        LoadFile (resolvedPath!, fragment);
+                        browseBar!.Push (resolvedPath);
+                        LoadFile (resolvedPath, fragment);
 
                         return true;
                     }
@@ -205,20 +205,20 @@ internal sealed class MarkdownClet : IViewerClet
         {
             // Use basenames when they are all distinct; fall back to relative paths
             // so that files like a/readme.md and b/readme.md get unique labels.
-            List<string> basenames = [.. files.Select (f => Path.GetFileName (f) ?? f)];
+            List<string> basenames = [.. files.Select (static f => Path.GetFileName (f.AsSpan ()).ToString ())];
             bool hasCollisions = basenames.Count != basenames.Distinct (StringComparer.OrdinalIgnoreCase).Count ();
             string cwd = Directory.GetCurrentDirectory ();
             List<string> displayNames = hasCollisions
                 ? [.. files.Select (f => Path.GetRelativePath (cwd, f))]
                 : basenames;
 
-            ObservableCollection<string> displayNamesOc = new (displayNames!);
+            ObservableCollection<string> displayNamesOc = new (displayNames);
 
             DropDownList fileSelector = new ()
             {
                 Source = new ListWrapper<string> (displayNamesOc),
                 ReadOnly = true,
-                Text = displayNames[0] ?? string.Empty,
+                Text = displayNames[0],
                 Width = 30,
             };
 
@@ -255,7 +255,7 @@ internal sealed class MarkdownClet : IViewerClet
             }
             else if (!string.IsNullOrEmpty (content))
             {
-                string sanitized = TerminalEscapeSanitizer.Sanitize (content)!;
+                string sanitized = SanitizeContent (content);
                 markdownView.Text = sanitized;
                 fileSizeShortcut.Title = FormatFileSize (System.Text.Encoding.UTF8.GetByteCount (sanitized));
                 statusLink.Text = options.Title ?? "(inline)";
@@ -284,7 +284,7 @@ internal sealed class MarkdownClet : IViewerClet
         {
             string fullPath = Path.GetFullPath (filePath);
 
-            string fileContent = TerminalEscapeSanitizer.Sanitize (File.ReadAllText (fullPath))!;
+            string fileContent = SanitizeContent (File.ReadAllText (fullPath));
             markdownView.Text = fileContent;
 
             currentFile = fullPath;
@@ -378,7 +378,7 @@ internal sealed class MarkdownClet : IViewerClet
     private static string FormatFileSize (long bytes)
     {
         string[] sizes = ["B", "KB", "MB", "GB", "TB"];
-        var order = 0;
+        int order = 0;
         double size = bytes;
 
         while (size >= 1024 && order < sizes.Length - 1)
@@ -388,5 +388,10 @@ internal sealed class MarkdownClet : IViewerClet
         }
 
         return $"{size:0.##} {sizes[order]}";
+    }
+
+    private static string SanitizeContent (string content)
+    {
+        return TerminalEscapeSanitizer.Sanitize (content) ?? string.Empty;
     }
 }

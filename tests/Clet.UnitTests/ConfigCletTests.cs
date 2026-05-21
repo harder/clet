@@ -15,7 +15,7 @@ public class ConfigCletTests
             AllowTrailingCommas = true,
         };
 
-        JsonDocument doc = JsonDocument.Parse (ConfigClet.DefaultConfigContent, options);
+        using var doc = JsonDocument.Parse (ConfigClet.DefaultConfigContent, options);
         Assert.NotNull (doc);
         Assert.Equal (JsonValueKind.Object, doc.RootElement.ValueKind);
     }
@@ -40,7 +40,7 @@ public class ConfigCletTests
             AllowTrailingCommas = true,
         };
 
-        JsonDocument doc = JsonDocument.Parse (modified, options);
+        using var doc = JsonDocument.Parse (modified, options);
         Assert.NotNull (doc);
         Assert.Equal (JsonValueKind.Object, doc.RootElement.ValueKind);
     }
