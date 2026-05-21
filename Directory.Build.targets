@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <TerminalGuiFreshnessCheckScript>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'scripts', 'check-tg-pins-fresh.py'))</TerminalGuiFreshnessCheckScript>
+  </PropertyGroup>
+
+  <Target Name="CheckTerminalGuiPinsFresh"
+          BeforeTargets="Restore"
+          Condition="'$(GITHUB_ACTIONS)' == 'true' and '$(MSBuildProjectName)' == 'Clet'">
+    <Exec Command="python &quot;$(TerminalGuiFreshnessCheckScript)&quot; --props &quot;$(MSBuildThisFileDirectory)Directory.Build.props&quot; --terminal-gui-version &quot;$(TerminalGuiVersion)&quot; --terminal-gui-editor-version &quot;$(TerminalGuiEditorVersion)&quot;" />
+  </Target>
+</Project>
