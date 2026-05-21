@@ -1,6 +1,4 @@
 using Terminal.Gui.App;
-using Terminal.Gui.Drawing;
-using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
 namespace Clet;
@@ -51,7 +49,7 @@ internal sealed class ConfirmClet : IClet<bool?>
         }
 
         // --prompt option overrides --title for the window title
-        string effectiveTitle = options.CletOptions?.TryGetValue ("prompt", out string? promptValue) == true && promptValue is not null
+        string effectiveTitle = options.CletOptions?.TryGetValue ("prompt", out string? promptValue) == true
             ? promptValue
             : "Confirm (Enter to accept, Esc to cancel)";
 

@@ -101,7 +101,7 @@ public class OutputFormatterTests
     [Fact]
     public void Plain_JsonArray_PrintsOneItemPerLine ()
     {
-        JsonArray arr = new () { "Apple", "Banana", "Cherry" };
+        JsonArray arr = ["Apple", "Banana", "Cherry"];
         BoxedCletResult result = new (CletRunStatus.Ok, arr, null, null);
         StringWriter stdout = new ();
         StringWriter stderr = new ();
@@ -133,7 +133,7 @@ public class OutputFormatterTests
     [Fact]
     public void Json_JsonArray_IncludesArrayInEnvelope ()
     {
-        JsonArray arr = new () { "A", "C" };
+        JsonArray arr = ["A", "C"];
         BoxedCletResult result = new (CletRunStatus.Ok, arr, null, null);
         StringWriter stdout = new ();
         StringWriter stderr = new ();

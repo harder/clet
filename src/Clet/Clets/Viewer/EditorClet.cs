@@ -318,7 +318,7 @@ internal sealed class EditorClet : IViewerClet
 
         void ToggleMarkdownPreview ()
         {
-            if (previewMarkdownItem.Title.StartsWith ($"✓"))
+            if (previewMarkdownItem.Title.StartsWith ("✓"))
             {
                 HideMarkdownPreview ();
                 previewMarkdownItem.Title = "  _Preview Markdown";
@@ -364,8 +364,8 @@ internal sealed class EditorClet : IViewerClet
         long? lastFileByteSize = null;
         string lastStatusVerb = "Loaded";
         object streamingStatusLock = new ();
-        long lastStreamingStatusUnits = 0;
-        DateTime lastStreamingStatusUpdate = DateTime.MinValue;
+        long lastStreamingStatusUnits;
+        DateTime lastStreamingStatusUpdate;
         long streamingStatusOperationId = 0;
         CancellationTokenSource? progressiveLoadCts = null;
 
@@ -492,7 +492,7 @@ internal sealed class EditorClet : IViewerClet
                 return;
             }
 
-            Encoding encoding = document.Encoding ?? Encoding.UTF8;
+            Encoding encoding = document.Encoding;
             lastFileByteSize = encoding.GetByteCount (document.Text);
         }
 
@@ -542,7 +542,7 @@ internal sealed class EditorClet : IViewerClet
             editor.SetFocus ();
         }
 
-        bool OpenFileSynchronously (string fullPath)
+        void OpenFileSynchronously (string fullPath)
         {
             try
             {
@@ -552,19 +552,14 @@ internal sealed class EditorClet : IViewerClet
                 editor.LoadAsync (stream, cancellationToken: cancellationToken).GetAwaiter ().GetResult ();
                 ApplyLoadedFileState (fullPath, fileSize);
 
-                return true;
             }
             catch (OperationCanceledException)
             {
                 CompleteAnyStreamingStatus ("Load canceled");
-
-                return false;
             }
             catch (Exception ex) when (IsFileOperationException (ex))
             {
                 CompleteAnyStreamingStatus ("Load failed");
-
-                return false;
             }
         }
 
@@ -956,7 +951,7 @@ internal sealed class EditorClet : IViewerClet
 
             string? selectedPath = null;
 
-            if (!od.Canceled && od.FilePaths.Count > 0)
+            if (od is { Canceled: false, FilePaths.Count: > 0 })
             {
                 selectedPath = od.FilePaths[0];
                 lastDirectory = Path.GetDirectoryName (Path.GetFullPath (selectedPath));

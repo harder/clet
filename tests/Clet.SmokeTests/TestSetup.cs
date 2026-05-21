@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
 
-namespace Clet.IntegrationTests;
+namespace Clet.SmokeTests;
 
 /// <summary>
-/// Disables real driver I/O so tests never interact with the terminal or launch processes.
+/// Disables real driver I/O for the smoke-test host process.
 /// </summary>
 internal static class TestSetup
 {

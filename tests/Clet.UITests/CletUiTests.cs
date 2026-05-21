@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Xunit;
 
 namespace Clet.UITests;
@@ -8,7 +7,7 @@ namespace Clet.UITests;
 ///     assembly level (see <c>AssemblyAttributes.cs</c>) because TG's <c>IApplication</c> has
 ///     process-global state.
 /// </summary>
-public class CletUITests
+public class CletUiTests
 {
     [Fact]
     public async Task TextClet_InitialRender_MatchesAnsiGolden ()
@@ -57,13 +56,13 @@ public class CletUITests
 
     [Fact]
     public async Task MultiSelectClet_InitialRender_MatchesAnsiGolden ()
-        => await AssertInputRenderAsync<JsonArray?> (
+        => await AssertInputRenderAsync (
             new MultiSelectClet (), "multi-select.ans", "Select one or more options",
             initial: "Apple,Cherry", options: Options ("options", "Apple,Banana,Cherry"));
 
     [Fact]
     public async Task AttributePickerClet_InitialRender_MatchesAnsiGolden ()
-        => await AssertInputRenderAsync<JsonObject?> (
+        => await AssertInputRenderAsync (
             new AttributePickerClet (), "attribute-picker.ans", "Pick text attributes", width: 80, height: 20);
 
     [Fact]
@@ -71,10 +70,10 @@ public class CletUITests
         => await WithTempDirectoryAsync (async root =>
         {
             string path = Path.Combine (root, "sample.txt");
-            File.WriteAllText (path, "sample");
+            await File.WriteAllTextAsync (path, "sample");
             SetStableTimestamp (path);
             SetStableTimestamp (root);
-            await AssertInputRenderAsync<JsonNode?> (
+            await AssertInputRenderAsync (
                 new PickFileClet (), "pick-file.ans", "file (Enter",
                 options: Options ("root", root), width: 80, height: 20);
         });
@@ -94,7 +93,7 @@ public class CletUITests
 
     [Fact]
     public async Task LinearRangeClet_InitialRender_MatchesAnsiGolden ()
-        => await AssertInputRenderAsync<JsonObject?> (
+        => await AssertInputRenderAsync (
             new LinearRangeClet (), "linear-range.ans", "Pick one",
             options: Options ("options", "Free,Pro,Team"), width: 80, height: 12);
 
@@ -108,9 +107,9 @@ public class CletUITests
         => await WithTempDirectoryAsync (async root =>
         {
             string path = Path.Combine (root, "sample.md");
-            File.WriteAllText (path, "# Hello\n\nBody\n");
+            await File.WriteAllTextAsync (path, "# Hello\n\nBody\n");
 
-            await using CletUIHarness<object?> harness = await CletUIHarness<object?>.StartViewerAsync (
+            await using var harness = await CletUiHarness<object?>.StartViewerAsync (
                 new EditorClet (),
                 options: new CletRunOptions
                 {
@@ -153,13 +152,13 @@ public class CletUITests
     private static async Task AssertInputRenderAsync<T> (
         IClet<T> clet,
         string goldenName,
-        string expected,
+        string _,
         string? initial = null,
         CletRunOptions? options = null,
         int width = 60,
         int height = 10)
     {
-        await using CletUIHarness<T> harness = await CletUIHarness<T>.StartAsync (
+        await using var harness = await CletUiHarness<T>.StartAsync (
             clet, initial: initial, options: options, width: width, height: height);
 
         Assert.False (string.IsNullOrWhiteSpace (harness.SnapshotAnsi ()));
@@ -169,13 +168,13 @@ public class CletUITests
     private static async Task AssertViewerRenderAsync (
         IViewerClet clet,
         string goldenName,
-        string expected,
+        string _,
         string? initial = null,
         CletRunOptions? options = null,
         int width = 60,
         int height = 15)
     {
-        await using CletUIHarness<object?> harness = await CletUIHarness<object?>.StartViewerAsync (
+        await using var harness = await CletUiHarness<object?>.StartViewerAsync (
             clet, initial: initial, options: options, width: width, height: height);
 
         Assert.False (string.IsNullOrWhiteSpace (harness.SnapshotAnsi ()));
@@ -230,5 +229,16 @@ public class CletUITests
     }
 
     private static void SetStableTimestamp (string path)
-        => File.SetLastWriteTimeUtc (path, new DateTime (2026, 1, 2, 3, 4, 5, DateTimeKind.Utc));
+    {
+        DateTime timestamp = new (2026, 1, 2, 3, 4, 5, DateTimeKind.Local);
+
+        if (Directory.Exists (path))
+        {
+            Directory.SetLastWriteTime (path, timestamp);
+            return;
+        }
+
+        File.SetLastWriteTime (path, timestamp);
+    }
 }
+

@@ -15,7 +15,7 @@ namespace Clet.UITests;
 ///     <see cref="IApplication.Iteration"/>, then requests stop after a few draw cycles so rendering
 ///     assertions are deterministic without a background loop.
 /// </remarks>
-internal sealed class CletUIHarness<T> : IAsyncDisposable
+internal sealed class CletUiHarness<T> : IAsyncDisposable
 {
     private readonly IApplication _app;
     private readonly CancellationTokenSource _cts;
@@ -23,7 +23,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
     private readonly string? _initialAnsiSnapshot;
     private readonly string? _initialTextSnapshot;
 
-    private CletUIHarness (
+    private CletUiHarness (
         IApplication app,
         CancellationTokenSource cts,
         Task<CletRunResult<T>> cletTask,
@@ -38,7 +38,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
     }
 
     /// <summary>Start a harness for the given input clet. Returns after the initial render has been captured.</summary>
-    public static Task<CletUIHarness<T>> StartAsync (
+    public static Task<CletUiHarness<T>> StartAsync (
         IClet<T> clet,
         string? initial = null,
         CletRunOptions? options = null,
@@ -49,7 +49,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
             width, height);
 
     /// <summary>Start a harness for a viewer clet. Result.Value is always default(T) for viewers.</summary>
-    public static Task<CletUIHarness<T>> StartViewerAsync (
+    public static Task<CletUiHarness<T>> StartViewerAsync (
         IViewerClet viewer,
         string? initial = null,
         CletRunOptions? options = null,
@@ -68,7 +68,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
             },
             width, height);
 
-    private static async Task<CletUIHarness<T>> StartCoreAsync (
+    private static async Task<CletUiHarness<T>> StartCoreAsync (
         Func<IApplication, CancellationToken, Task<CletRunResult<T>>> run,
         int width,
         int height)
@@ -169,14 +169,11 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
         {
             Console.SetOut (originalOut);
             app.Iteration -= handler;
-            capturedOut.Dispose ();
+            await capturedOut.DisposeAsync ();
         }
 
         return new (app, cts, task, ansiSnapshot, textSnapshot);
     }
-
-    /// <summary>The IApplication driving the clet. Use sparingly — prefer the harness API where possible.</summary>
-    public IApplication App => _app;
 
     /// <summary>
     ///     Snapshot the current screen as plain text, one line per row, trailing whitespace trimmed
@@ -264,68 +261,6 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
         return _initialAnsiSnapshot ?? CanonicalizeAnsi (_app.Driver?.ToAnsi ());
     }
 
-    /// <summary>Snapshot the screen as raw <c>Cell[,]</c> for tests that need attribute/style assertions.</summary>
-    public Cell[,]? SnapshotCells () => _app.Driver?.Contents;
-
-    /// <summary>Asserts the given text appears starting at <paramref name="row"/>, <paramref name="col"/>.</summary>
-    public void AssertCellsAt (int row, int col, string expected)
-    {
-        Cell[,]? contents = _app.Driver?.Contents
-                             ?? throw new InvalidOperationException ("No driver contents available.");
-
-        StringBuilder actual = new (expected.Length);
-        int cols = contents.GetLength (1);
-
-        for (int i = 0; i < expected.Length && col + i < cols; i++)
-        {
-            string g = contents[row, col + i].Grapheme;
-            actual.Append (string.IsNullOrEmpty (g) ? " " : g);
-        }
-
-        Assert.Equal (expected, actual.ToString ());
-    }
-
-    /// <summary>
-    ///     Compare the current text snapshot against a stored golden file under
-    ///     <c>tests/Clet.UITests/Goldens/&lt;name&gt;</c>. Set <c>CLET_REGEN_GOLDENS=1</c> to rewrite mismatched
-    ///     goldens in place; the test still fails on a regen so a regen is always a deliberate two-run
-    ///     cycle.
-    /// </summary>
-    public void AssertMatchesGolden (string fileName)
-    {
-        string actual = SnapshotText ();
-        string path = ResolveGoldenPath (fileName);
-        bool regen = Environment.GetEnvironmentVariable ("CLET_REGEN_GOLDENS") == "1";
-
-        if (!File.Exists (path))
-        {
-            if (regen)
-            {
-                Directory.CreateDirectory (Path.GetDirectoryName (path)!);
-                File.WriteAllText (path, actual);
-                Assert.Fail ($"Golden created at {path}. Re-run without CLET_REGEN_GOLDENS to verify.");
-            }
-
-            Assert.Fail ($"Golden not found: {path}. Run with CLET_REGEN_GOLDENS=1 to create it.");
-        }
-
-        string expected = File.ReadAllText (path).Replace ("\r\n", "\n");
-        actual = actual.Replace ("\r\n", "\n");
-
-        if (expected == actual)
-        {
-            return;
-        }
-
-        if (regen)
-        {
-            File.WriteAllText (path, actual);
-            Assert.Fail ($"Golden updated at {path}. Re-run without CLET_REGEN_GOLDENS to verify.");
-        }
-
-        Assert.Equal (expected, actual);
-    }
-
     /// <summary>
     ///     Compare the current ANSI snapshot against a stored golden file under
     ///     <c>tests/Clet.UITests/Goldens/&lt;name&gt;</c>. Set <c>CLET_REGEN_GOLDENS=1</c> or
@@ -333,7 +268,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
     /// </summary>
     public void AssertMatchesAnsiGolden (string fileName)
     {
-        string actual = SnapshotAnsi ();
+        string actual = NormalizeForGolden (SnapshotAnsi ());
         string path = ResolveGoldenPath (fileName);
         bool regen = ShouldRegenerateGoldens ();
 
@@ -348,7 +283,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
             Assert.Fail ($"ANSI golden not found: {path}. Run with CLET_REGEN_GOLDENS=1 to create it.");
         }
 
-        string expected = CanonicalizeAnsi (File.ReadAllText (path));
+        string expected = NormalizeForGolden (CanonicalizeAnsi (File.ReadAllText (path)));
 
         if (expected == actual)
         {
@@ -388,7 +323,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
 
         if (regen)
         {
-            string? sourcePath = typeof (CletUIHarness<T>).Assembly
+            string? sourcePath = typeof (CletUiHarness<T>).Assembly
                 .GetCustomAttributes (typeof (System.Reflection.AssemblyMetadataAttribute), false)
                 .Cast<System.Reflection.AssemblyMetadataAttribute> ()
                 .FirstOrDefault (a => a.Key == "GoldensSourcePath")
@@ -400,7 +335,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
             }
         }
 
-        string assemblyDir = Path.GetDirectoryName (typeof (CletUIHarness<T>).Assembly.Location)!;
+        string assemblyDir = Path.GetDirectoryName (typeof (CletUiHarness<T>).Assembly.Location)!;
         return Path.Combine (assemblyDir, "Goldens", fileName);
     }
 
@@ -411,28 +346,21 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
     private static string CanonicalizeAnsi (string? ansi)
         => (ansi ?? string.Empty).Replace ("\r\n", "\n").Replace ("\r", "\n");
 
+    private static string NormalizeForGolden (string ansi)
+    {
+        string tempPath = Path.GetTempPath ().TrimEnd (Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string escapedTempPath = System.Text.RegularExpressions.Regex.Escape (tempPath);
+
+        return System.Text.RegularExpressions.Regex.Replace (
+            ansi,
+            $@"{escapedTempPath}[\\/]+clet-ui-[0-9a-fA-F]+",
+            "<clet-ui-temp>");
+    }
+
     private static void WriteAnsiGolden (string path, string ansi)
     {
         Directory.CreateDirectory (Path.GetDirectoryName (path)!);
         File.WriteAllText (path, ansi, new UTF8Encoding (false));
-    }
-
-    /// <summary>Cancel the clet's run and return its final result.</summary>
-    public async Task<CletRunResult<T>> StopAndGetResultAsync ()
-    {
-        if (!_cletTask.IsCompleted)
-        {
-            _cts.Cancel ();
-        }
-
-        try
-        {
-            return await _cletTask;
-        }
-        catch (OperationCanceledException)
-        {
-            return new CletRunResult<T> { Status = CletRunStatus.Cancelled };
-        }
     }
 
     public async ValueTask DisposeAsync ()
@@ -441,7 +369,7 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
         {
             if (!_cletTask.IsCompleted)
             {
-                _cts.Cancel ();
+                await _cts.CancelAsync ();
 
                 try
                 {
@@ -461,3 +389,4 @@ internal sealed class CletUIHarness<T> : IAsyncDisposable
         }
     }
 }
+

@@ -41,7 +41,7 @@ internal sealed class ConfigClet : IViewerClet
         string configPath = GetConfigPath ();
         EnsureConfigFile (configPath);
 
-        string configText = File.ReadAllText (configPath);
+        string configText = await File.ReadAllTextAsync (configPath, cancellationToken);
 
         // Check for pre-existing config errors to show on launch
         string? launchError = ValidateConfig (configPath);

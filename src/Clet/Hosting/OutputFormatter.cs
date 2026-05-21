@@ -87,7 +87,7 @@ internal static class OutputFormatter
         }
     }
 
-    public static SchemaV1 ToSchemaV1 (BoxedCletResult result)
+    private static SchemaV1 ToSchemaV1 (BoxedCletResult result)
     {
         return result.Status switch
         {

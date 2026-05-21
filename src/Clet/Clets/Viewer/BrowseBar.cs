@@ -24,7 +24,7 @@ internal sealed class BrowseBar
     public Shortcut Forward { get; }
 
     /// <summary>Called when back/forward navigation fires. The argument is the target location string.</summary>
-    public Action<string>? OnNavigate { get; set; }
+    public Action<string>? OnNavigate { get; init; }
 
     public BrowseBar (string? initialLocation)
     {

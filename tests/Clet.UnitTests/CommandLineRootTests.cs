@@ -52,7 +52,7 @@ public class CommandLineRootTests
     {
         (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         int exit = await root.InvokeAsync (["help", "select"], cts.Token, stdout, stderr);
 
@@ -326,7 +326,7 @@ public class CommandLineRootTests
         // We're verifying the size cap doesn't trip at the boundary; the actual clet
         // result (cancellation) is incidental.
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         int exit = await root.InvokeAsync (["select", "--initial", atLimit], cts.Token, stdout, stderr);
 
@@ -374,7 +374,7 @@ public class CommandLineRootTests
 
         try
         {
-            File.WriteAllText (tempFile, "# Test File\n\nSome content.");
+            await File.WriteAllTextAsync (tempFile, "# Test File\n\nSome content.", TestContext.Current.CancellationToken);
 
             int exit = await root.InvokeAsync (["md", "--cat", "--allow-file", tempFile, tempFile], CancellationToken.None, stdout, stderr);
 
@@ -426,3 +426,4 @@ public class CommandLineRootTests
         Assert.Contains ("--output", stderr.ToString ());
     }
 }
+

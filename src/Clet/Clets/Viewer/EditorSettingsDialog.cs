@@ -1,6 +1,4 @@
-using Terminal.Gui.App;
 using Terminal.Gui.Editor;
-using Terminal.Gui.Input;
 using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -42,7 +40,7 @@ internal sealed class EditorSettingsDialog : Dialog
         };
         _indentSize.ValueChanging += (_, e) =>
         {
-            if (e.NewValue is < 1)
+            if (e.NewValue < 1)
             {
                 e.Handled = true;
             }

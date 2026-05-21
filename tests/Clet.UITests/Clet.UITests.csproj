@@ -8,8 +8,8 @@
         <RootNamespace>Clet.UITests</RootNamespace>
     </PropertyGroup>
 
-    <!-- Source-tree path baked in at build time so CLET_REGEN_GOLDENS=1 writes goldens
-       back into source rather than the bin directory. CletUIHarness reads this via
+  <!-- Source-tree path baked in at build time so CLET_REGEN_GOLDENS=1 writes goldens
+       back into source rather than the bin directory. CletUiHarness reads this via
        AssemblyMetadataAttribute. -->
     <ItemGroup>
         <AssemblyMetadata Include="GoldensSourcePath" Value="$(MSBuildProjectDirectory)/Goldens" />

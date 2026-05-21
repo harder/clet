@@ -71,9 +71,9 @@ internal sealed class PickDirectoryClet : IClet<string?>
             return new () { Status = CletRunStatus.Cancelled };
         }
 
-        IReadOnlyList<string>? paths = dialog.FilePaths;
+        IReadOnlyList<string> paths = dialog.FilePaths;
 
-        if (paths is null || paths.Count == 0)
+        if (paths.Count == 0)
         {
             return new () { Status = CletRunStatus.Cancelled };
         }

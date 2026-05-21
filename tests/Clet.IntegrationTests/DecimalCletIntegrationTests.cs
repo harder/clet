@@ -15,7 +15,7 @@ public class DecimalCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<decimal?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -57,3 +57,4 @@ public class DecimalCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

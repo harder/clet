@@ -18,7 +18,7 @@ public class MarkdownCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult result = await clet.RunAsync (app, "# Test", options, cts.Token);
 
@@ -87,7 +87,7 @@ public class MarkdownCletIntegrationTests
 
         try
         {
-            File.WriteAllText (tempFile, "# Test File\n\nSome content.");
+            await File.WriteAllTextAsync (tempFile, "# Test File\n\nSome content.", TestContext.Current.CancellationToken);
 
             using IApplication app = Application.Create ();
             app.Init ("ansi");
@@ -242,7 +242,10 @@ public class MarkdownCletIntegrationTests
 
         try
         {
-            File.WriteAllText (tempFile, "# Browse Test\n\nSome content with a [link](other.md).");
+            await File.WriteAllTextAsync (
+                tempFile,
+                "# Browse Test\n\nSome content with a [link](other.md).",
+                TestContext.Current.CancellationToken);
 
             using IApplication app = Application.Create ();
             app.Init ("ansi");
@@ -318,3 +321,4 @@ public class MarkdownCletIntegrationTests
         return count;
     }
 }
+

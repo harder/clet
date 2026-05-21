@@ -99,7 +99,7 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         }
 
         // Build typed options (T = string) once; reused by whichever view we instantiate.
-        List<LinearRangeOption<string>> linearOptions = labels
+        var linearOptions = labels
             .Select (s => new LinearRangeOption<string> (s, (Rune)(s.Length > 0 ? s[0] : ' '), s))
             .ToList ();
 

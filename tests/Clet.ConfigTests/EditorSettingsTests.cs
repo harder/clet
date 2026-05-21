@@ -113,7 +113,7 @@ public class EditorSettingsTests : IDisposable
         // Assert — parse the written file and check values
         string json = File.ReadAllText (_configPath);
 
-        JsonNode? root = JsonNode.Parse (
+        var root = JsonNode.Parse (
             json,
             documentOptions: new JsonDocumentOptions
             {
@@ -156,7 +156,7 @@ public class EditorSettingsTests : IDisposable
         // Assert
         string json = File.ReadAllText (_configPath);
 
-        JsonNode? root = JsonNode.Parse (
+        var root = JsonNode.Parse (
             json,
             documentOptions: new JsonDocumentOptions
             {
@@ -370,7 +370,7 @@ public class EditorSettingsTests : IDisposable
 
         string json = File.ReadAllText (_configPath);
 
-        JsonNode? root = JsonNode.Parse (
+        var root = JsonNode.Parse (
             json,
             documentOptions: new JsonDocumentOptions
             {
@@ -379,7 +379,7 @@ public class EditorSettingsTests : IDisposable
             });
 
         Assert.NotNull (root);
-        Assert.Equal (6, (int)root!["EditorSettings.IndentSize"]!);
+        Assert.Equal (6, (int)root["EditorSettings.IndentSize"]!);
     }
 
     [Fact]
