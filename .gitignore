@@ -58,6 +58,7 @@ nunit-*.xml
 
 # Visual Studio cache / IDE state
 .vs/
+*.DotSettings.user
 
 # Local AOT publish output (`make publish`) and release archives
 publish/
