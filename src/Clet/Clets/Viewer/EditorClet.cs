@@ -8,10 +8,12 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.Editor;
 using Terminal.Gui.Highlighting;
 using Terminal.Gui.Input;
+using Terminal.Gui.Resources;
 using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Command = Terminal.Gui.Input.Command;
+
 // ReSharper disable AccessToModifiedClosure
 
 namespace Clet;
@@ -201,8 +203,6 @@ internal sealed class EditorClet : IViewerClet
 
         // View-menu toggle item — declared early so preview state helpers can reference it.
         MenuItem previewMarkdownItem = new () { Title = "  _Preview Markdown", Enabled = isMarkdownFile };
-
-        Markdown? preview = markdownPreview;
 
         void OnPreviewViewportChanged (object? sender, DrawEventArgs e)
         {
@@ -409,94 +409,15 @@ internal sealed class EditorClet : IViewerClet
             return string.IsNullOrEmpty (fullPath) ? path : fullPath;
         }
 
-        static string FitFileName (string fileName, int maxColumns)
+        int GetFilenameTextColumns ()
         {
-            if (maxColumns <= 0)
-            {
-                return string.Empty;
-            }
-
-            if (fileName.Length <= maxColumns)
-            {
-                return fileName;
-            }
-
-            if (maxColumns == 1)
-            {
-                return "…";
-            }
-
-            string extension = Path.GetExtension (fileName);
-
-            if (!string.IsNullOrEmpty (extension) && extension.Length + 2 <= maxColumns)
-            {
-                int stemColumns = maxColumns - extension.Length - 1;
-                return string.Concat (fileName.AsSpan (0, stemColumns), "…", extension);
-            }
-
-            return string.Concat (fileName.AsSpan (0, maxColumns - 1), "…");
+            return Math.Max (1, filenameShortcutWidth - 3);
         }
-
-        static string FitFileDisplayName (string displayName, int maxColumns)
-        {
-            if (maxColumns <= 0)
-            {
-                return string.Empty;
-            }
-
-            if (displayName.Length <= maxColumns)
-            {
-                return displayName;
-            }
-
-            if (maxColumns == 1)
-            {
-                return "…";
-            }
-
-            string filename = Path.GetFileName (displayName);
-
-            if (string.IsNullOrEmpty (filename))
-            {
-                return FitFileName (displayName, maxColumns);
-            }
-
-            string separator = displayName.Contains ('\\', StringComparison.Ordinal) ? "\\" : "/";
-            string root = Path.GetPathRoot (displayName) ?? string.Empty;
-            string relativePath = string.IsNullOrEmpty (root) ? displayName : displayName[root.Length..];
-            string[] parts = relativePath.Split (
-                ['\\', '/'],
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            if (filename.Length + 2 > maxColumns)
-            {
-                return string.Concat ("…", separator, FitFileName (filename, maxColumns - 2));
-            }
-
-            for (int i = 0; i < parts.Length; i++)
-            {
-                string suffix = string.Join (separator, parts.Skip (i));
-                string candidate = string.IsNullOrEmpty (root)
-                    ? string.Concat ("…", separator, suffix)
-                    : string.Concat (root, "…", separator, suffix);
-
-                if (candidate.Length <= maxColumns)
-                {
-                    return candidate;
-                }
-            }
-
-            string fallback = string.IsNullOrEmpty (root)
-                ? string.Concat ("…", separator, filename)
-                : string.Concat (root, "…", separator, filename);
-
-            return fallback.Length <= maxColumns ? fallback : string.Concat ("…", separator, filename);
-        }
-
-        int GetFilenameTextColumns () => Math.Max (1, filenameShortcutWidth - 3);
 
         string GetFittedFileDisplayName (string? path)
-            => FitFileDisplayName (GetFileDisplayName (path), GetFilenameTextColumns ());
+        {
+            return EditorFileDisplay.FitPath (GetFileDisplayName (path), GetFilenameTextColumns ());
+        }
 
         void UpdateFileSelectorText ()
         {
@@ -521,9 +442,10 @@ internal sealed class EditorClet : IViewerClet
             switchingFileSelector = true;
             fileSelectorDisplayNames.Clear ();
 
-            foreach (string file in fileSelectorFiles)
+            foreach (string displayName in EditorFileDisplay.FitPaths (fileSelectorFiles.Select (GetFileDisplayName),
+                         GetFilenameTextColumns ()))
             {
-                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (file));
+                fileSelectorDisplayNames.Add (displayName);
             }
 
             if (fileSelectorFiles.Count == 0)
@@ -578,7 +500,9 @@ internal sealed class EditorClet : IViewerClet
 
             int longestDisplayName = Math.Max (
                 GetFileDisplayName (filePath).Length,
-                fileSelectorFiles.Count == 0 ? "<untitled>".Length : fileSelectorFiles.Max (f => GetFileDisplayName (f).Length));
+                fileSelectorFiles.Count == 0
+                    ? "<untitled>".Length
+                    : fileSelectorFiles.Max (f => GetFileDisplayName (f).Length));
             int desiredWidth = longestDisplayName + shortcutChromeColumns;
             int availableWidth = menuWidth - fileMenuItemsWidth - gapBeforeFilenameShortcut;
             int maximumNaturalWidth = Math.Max (minimumShortcutWidth, menuWidth / 2);
@@ -693,7 +617,6 @@ internal sealed class EditorClet : IViewerClet
                 editor.ClearSelection ();
                 editor.LoadAsync (stream, cancellationToken: cancellationToken).GetAwaiter ().GetResult ();
                 ApplyLoadedFileState (fullPath, fileSize);
-
             }
             catch (OperationCanceledException)
             {
@@ -989,7 +912,7 @@ internal sealed class EditorClet : IViewerClet
             }
             catch (Exception ex)
             {
-                MessageBox.ErrorQuery (app, "Error", ex.Message, "Ok");
+                MessageBox.ErrorQuery (app, "Error", ex.Message, Terminal.Gui.Resources.Strings.btnOk);
 
                 return false;
             }
@@ -1053,19 +976,15 @@ internal sealed class EditorClet : IViewerClet
                 app,
                 "Unsaved Changes",
                 $"Save changes to {fileName ?? "Untitled"}?",
-                "Cancel", "_No", "_Yes");
+                Strings.btnCancel, Strings.btnNo, Strings.btnYes);
 
-            if (result is null or 0)
+            return result switch
             {
-                return false;
-            }
-
-            if (result == 2)
-            {
-                return SaveFile ();
-            }
-
-            return true;
+                null or 0 => false,
+                1 => true,
+                2 => SaveFile (),
+                _ => true
+            };
         }
 
         string? ShowOpenDialog ()
@@ -1335,11 +1254,16 @@ internal sealed class EditorClet : IViewerClet
                     $"'{Path.GetFileName (pendingDeniedPath)}' is outside the allowed\n"
                     + $"directories.\n\n{pendingDeniedPath}\n\n"
                     + "How would you like to proceed?",
-                    "Allow once", "Add to config", "Cancel");
+                    Strings.btnCancel, "_Allow once", "_Add to config");
 
                 switch (choice)
                 {
-                    case 0: // Allow once — add dir to the session policy only
+                    case 0 or null:
+                        accessDialogCancelled = true;
+                        window.RequestStop ();
+                        break;
+
+                    case 1: // Allow once — add dir to the session policy only
                         {
                             files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
 
@@ -1355,7 +1279,7 @@ internal sealed class EditorClet : IViewerClet
                             break;
                         }
 
-                    case 1: // Add to config — persist the directory and allow now
+                    case 2: // Add to config — persist the directory and allow now
                         {
                             FileAccessSettings.AddToConfig (dir);
                             files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
@@ -1372,10 +1296,7 @@ internal sealed class EditorClet : IViewerClet
                             break;
                         }
 
-                    default: // Cancel
-                        accessDialogCancelled = true;
-                        window.RequestStop ();
-
+                    default:
                         return;
                 }
             }
@@ -1420,7 +1341,7 @@ internal sealed class EditorClet : IViewerClet
 
         void OnEditorViewportChanged (object? sender, DrawEventArgs e)
         {
-            if (preview is null || syncingScroll)
+            if (markdownPreview is null || syncingScroll)
             {
                 return;
             }
@@ -1434,15 +1355,15 @@ internal sealed class EditorClet : IViewerClet
                 int maxEditorY = Math.Max (0, editorContentHeight - editorViewportHeight);
                 int editorY = editor.Viewport.Y;
 
-                int previewContentHeight = preview.GetContentSize ().Height;
-                int previewViewportHeight = preview.Viewport.Height;
+                int previewContentHeight = markdownPreview.GetContentSize ().Height;
+                int previewViewportHeight = markdownPreview.Viewport.Height;
                 int maxPreviewY = Math.Max (0, previewContentHeight - previewViewportHeight);
 
                 int newY = maxEditorY > 0
                     ? (int)((long)editorY * maxPreviewY / maxEditorY)
                     : 0;
 
-                preview.Viewport = preview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
+                markdownPreview.Viewport = markdownPreview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
             }
             finally
             {
