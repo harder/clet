@@ -372,13 +372,16 @@ internal sealed class EditorClet : IViewerClet
         List<string> fileSelectorFiles = [];
         ObservableCollection<string> fileSelectorDisplayNames = [];
         bool switchingFileSelector = false;
+        int fileMenuItemsWidth = 32;
+        int filenameShortcutWidth = 12;
+        int lastFilenameMenuWidth = -1;
         DropDownList filenameDropDown = new ()
         {
             Source = new ListWrapper<string> (fileSelectorDisplayNames),
             ReadOnly = true,
             Text = fileName ?? "<untitled>",
             CanFocus = false,
-            Width = Dim.Auto (DimAutoStyle.Text, 12)
+            Width = filenameShortcutWidth
         };
 
         // --- Local state helpers ---
@@ -401,15 +404,104 @@ internal sealed class EditorClet : IViewerClet
                 return "<untitled>";
             }
 
-            string name = Path.GetFileName (path);
+            string fullPath = Path.GetFullPath (path);
 
-            return string.IsNullOrEmpty (name) ? path : name;
+            return string.IsNullOrEmpty (fullPath) ? path : fullPath;
         }
+
+        static string FitFileName (string fileName, int maxColumns)
+        {
+            if (maxColumns <= 0)
+            {
+                return string.Empty;
+            }
+
+            if (fileName.Length <= maxColumns)
+            {
+                return fileName;
+            }
+
+            if (maxColumns == 1)
+            {
+                return "…";
+            }
+
+            string extension = Path.GetExtension (fileName);
+
+            if (!string.IsNullOrEmpty (extension) && extension.Length + 2 <= maxColumns)
+            {
+                int stemColumns = maxColumns - extension.Length - 1;
+                return string.Concat (fileName.AsSpan (0, stemColumns), "…", extension);
+            }
+
+            return string.Concat (fileName.AsSpan (0, maxColumns - 1), "…");
+        }
+
+        static string FitFileDisplayName (string displayName, int maxColumns)
+        {
+            if (maxColumns <= 0)
+            {
+                return string.Empty;
+            }
+
+            if (displayName.Length <= maxColumns)
+            {
+                return displayName;
+            }
+
+            if (maxColumns == 1)
+            {
+                return "…";
+            }
+
+            string filename = Path.GetFileName (displayName);
+
+            if (string.IsNullOrEmpty (filename))
+            {
+                return FitFileName (displayName, maxColumns);
+            }
+
+            string separator = displayName.Contains ('\\', StringComparison.Ordinal) ? "\\" : "/";
+            string root = Path.GetPathRoot (displayName) ?? string.Empty;
+            string relativePath = string.IsNullOrEmpty (root) ? displayName : displayName[root.Length..];
+            string[] parts = relativePath.Split (
+                ['\\', '/'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (filename.Length + 2 > maxColumns)
+            {
+                return string.Concat ("…", separator, FitFileName (filename, maxColumns - 2));
+            }
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string suffix = string.Join (separator, parts.Skip (i));
+                string candidate = string.IsNullOrEmpty (root)
+                    ? string.Concat ("…", separator, suffix)
+                    : string.Concat (root, "…", separator, suffix);
+
+                if (candidate.Length <= maxColumns)
+                {
+                    return candidate;
+                }
+            }
+
+            string fallback = string.IsNullOrEmpty (root)
+                ? string.Concat ("…", separator, filename)
+                : string.Concat (root, "…", separator, filename);
+
+            return fallback.Length <= maxColumns ? fallback : string.Concat ("…", separator, filename);
+        }
+
+        int GetFilenameTextColumns () => Math.Max (1, filenameShortcutWidth - 3);
+
+        string GetFittedFileDisplayName (string? path)
+            => FitFileDisplayName (GetFileDisplayName (path), GetFilenameTextColumns ());
 
         void UpdateFileSelectorText ()
         {
             switchingFileSelector = true;
-            filenameDropDown.Text = GetFileDisplayName (filePath);
+            filenameDropDown.Text = GetFittedFileDisplayName (filePath);
             switchingFileSelector = false;
         }
 
@@ -421,7 +513,26 @@ internal sealed class EditorClet : IViewerClet
             }
 
             fileSelectorFiles.Add (fullPath);
-            fileSelectorDisplayNames.Add (GetFileDisplayName (fullPath));
+            fileSelectorDisplayNames.Add (GetFittedFileDisplayName (fullPath));
+        }
+
+        void RefreshFileSelectorDisplayNames ()
+        {
+            switchingFileSelector = true;
+            fileSelectorDisplayNames.Clear ();
+
+            foreach (string file in fileSelectorFiles)
+            {
+                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (file));
+            }
+
+            if (fileSelectorFiles.Count == 0)
+            {
+                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (null));
+            }
+
+            filenameDropDown.Text = GetFittedFileDisplayName (filePath);
+            switchingFileSelector = false;
         }
 
         void RebuildFileSelectorItems ()
@@ -436,7 +547,6 @@ internal sealed class EditorClet : IViewerClet
                 if (!fileSelectorFiles.Contains (fullPath, StringComparer.OrdinalIgnoreCase))
                 {
                     fileSelectorFiles.Add (fullPath);
-                    fileSelectorDisplayNames.Add (GetFileDisplayName (fullPath));
                 }
             }
 
@@ -447,10 +557,42 @@ internal sealed class EditorClet : IViewerClet
 
             if (fileSelectorDisplayNames.Count == 0)
             {
-                fileSelectorDisplayNames.Add ("<untitled>");
+                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (null));
             }
 
+            RefreshFileSelectorDisplayNames ();
             UpdateFileSelectorText ();
+        }
+
+        void UpdateFilenameShortcutLayout ()
+        {
+            const int shortcutChromeColumns = 3;
+            const int gapBeforeFilenameShortcut = 1;
+            const int minimumShortcutWidth = 12;
+            int menuWidth = menu.Frame.Width;
+
+            if (menuWidth <= 0)
+            {
+                return;
+            }
+
+            int longestDisplayName = Math.Max (
+                GetFileDisplayName (filePath).Length,
+                fileSelectorFiles.Count == 0 ? "<untitled>".Length : fileSelectorFiles.Max (f => GetFileDisplayName (f).Length));
+            int desiredWidth = longestDisplayName + shortcutChromeColumns;
+            int availableWidth = menuWidth - fileMenuItemsWidth - gapBeforeFilenameShortcut;
+            int maximumNaturalWidth = Math.Max (minimumShortcutWidth, menuWidth / 2);
+            int width = Math.Max (1, Math.Min (desiredWidth, Math.Min (availableWidth, maximumNaturalWidth)));
+
+            if (width == filenameShortcutWidth)
+            {
+                return;
+            }
+
+            filenameShortcutWidth = width;
+            filenameDropDown.Width = filenameShortcutWidth;
+            RefreshFileSelectorDisplayNames ();
+            filenameDropDown.SetNeedsDraw ();
         }
 
         void UpdateSyntaxLanguage (string path)
@@ -1084,6 +1226,18 @@ internal sealed class EditorClet : IViewerClet
         [
             new MenuItem { Title = "_About", Action = ShowAbout }
         ]));
+        fileMenuItemsWidth = Math.Max (fileMenuItemsWidth, menu.GetWidthRequiredForSubViews ());
+        app.Iteration += (_, _) =>
+        {
+            int menuWidth = menu.Frame.Width;
+            if (menuWidth == lastFilenameMenuWidth)
+            {
+                return;
+            }
+
+            lastFilenameMenuWidth = menuWidth;
+            UpdateFilenameShortcutLayout ();
+        };
 
         filenameDropDown.ValueChanged += (_, _) =>
         {
@@ -1118,6 +1272,7 @@ internal sealed class EditorClet : IViewerClet
             LoadFile (selectedPath);
         };
         RebuildFileSelectorItems ();
+        UpdateFilenameShortcutLayout ();
         Shortcut filenameShortcut = new ()
         {
             CommandView = filenameDropDown,
@@ -1125,6 +1280,7 @@ internal sealed class EditorClet : IViewerClet
             SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog)
         };
         menu.Add (filenameShortcut);
+        UpdateFilenameShortcutLayout ();
 
         // --- Wire find/replace events ---
 

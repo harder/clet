@@ -351,10 +351,15 @@ internal sealed class CletUiHarness<T> : IAsyncDisposable
         string tempPath = Path.GetTempPath ().TrimEnd (Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         string escapedTempPath = System.Text.RegularExpressions.Regex.Escape (tempPath);
 
-        return System.Text.RegularExpressions.Regex.Replace (
+        ansi = System.Text.RegularExpressions.Regex.Replace (
             ansi,
             $@"{escapedTempPath}[\\/]+clet-ui-[0-9a-fA-F]+",
             "<clet-ui-temp>");
+
+        return System.Text.RegularExpressions.Regex.Replace (
+            ansi,
+            "clet-ui-[0-9a-fA-F]+",
+            "clet-ui-temp");
     }
 
     private static void WriteAnsiGolden (string path, string ansi)

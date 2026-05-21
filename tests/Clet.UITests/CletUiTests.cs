@@ -129,6 +129,31 @@ public class CletUiTests
         });
 
     [Fact]
+    public async Task EditorClet_LongFilename_DoesNotOverlapHelpMenu ()
+        => await WithTempDirectoryAsync (async root =>
+        {
+            string filename = "this-is-a-very-long-markdown-file-name.md";
+            string path = Path.Combine (root, filename);
+            await File.WriteAllTextAsync (path, "# Hello\n");
+
+            await using var harness = await CletUiHarness<object?>.StartViewerAsync (
+                new EditorClet (),
+                options: new CletRunOptions
+                {
+                    Arguments = [path],
+                    AllowedFiles = [path],
+                },
+                width: 80,
+                height: 12);
+
+            string firstLine = harness.SnapshotText ().Split ('\n')[0];
+            Assert.Contains ("Help", firstLine);
+            Assert.Contains ("…", firstLine);
+            Assert.Contains (".md", firstLine);
+            Assert.DoesNotContain (path, firstLine);
+        });
+
+    [Fact]
     public async Task MarkdownClet_InitialRender_MatchesAnsiGolden ()
         => await AssertViewerRenderAsync (
             new MarkdownClet (), "md.ans", "Hello",
