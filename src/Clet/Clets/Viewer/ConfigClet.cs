@@ -114,8 +114,8 @@ internal sealed class ConfigClet : IViewerClet
 
         // --- StatusBar ---
 
-        Shortcut saveShortcut = new (Key.S.WithCtrl, "Save", () => Save ());
-        Shortcut quitShortcut = new (Application.GetDefaultKey (Command.Quit), "Quit", () => TryQuit ());
+        Shortcut saveShortcut = new (Key.S.WithCtrl, "Save", Save);
+        Shortcut quitShortcut = new (Application.GetDefaultKey (Command.Quit), "Quit", TryQuit);
 
         StatusBar statusBar = new ([quitShortcut, saveShortcut, statusMessage, cursorPosition, new Shortcut { Title = "Theme", CommandView = themeDropDown }])
         {
@@ -291,9 +291,6 @@ internal sealed class ConfigClet : IViewerClet
                     case 1:
                         window.RequestStop ();
 
-                        break;
-                    default:
-                        // Cancel — do nothing
                         break;
                 }
             }

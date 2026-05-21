@@ -12,6 +12,7 @@ using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Command = Terminal.Gui.Input.Command;
+// ReSharper disable AccessToModifiedClosure
 
 namespace Clet;
 
@@ -201,37 +202,7 @@ internal sealed class EditorClet : IViewerClet
         // View-menu toggle item — declared early so preview state helpers can reference it.
         MenuItem previewMarkdownItem = new () { Title = "  _Preview Markdown", Enabled = isMarkdownFile };
 
-        void OnEditorViewportChanged (object? sender, DrawEventArgs e)
-        {
-            if (markdownPreview is null || syncingScroll)
-            {
-                return;
-            }
-
-            syncingScroll = true;
-
-            try
-            {
-                int editorContentHeight = editor.GetContentSize ().Height;
-                int editorViewportHeight = editor.Viewport.Height;
-                int maxEditorY = Math.Max (0, editorContentHeight - editorViewportHeight);
-                int editorY = editor.Viewport.Y;
-
-                int previewContentHeight = markdownPreview.GetContentSize ().Height;
-                int previewViewportHeight = markdownPreview.Viewport.Height;
-                int maxPreviewY = Math.Max (0, previewContentHeight - previewViewportHeight);
-
-                int newY = maxEditorY > 0
-                    ? (int)((long)editorY * maxPreviewY / maxEditorY)
-                    : 0;
-
-                markdownPreview.Viewport = markdownPreview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
-            }
-            finally
-            {
-                syncingScroll = false;
-            }
-        }
+        Markdown? preview = markdownPreview;
 
         void OnPreviewViewportChanged (object? sender, DrawEventArgs e)
         {
@@ -347,7 +318,7 @@ internal sealed class EditorClet : IViewerClet
 
         void ToggleMarkdownPreview ()
         {
-            if (previewMarkdownItem.Title?.StartsWith ("✓") == true)
+            if (previewMarkdownItem.Title.StartsWith ($"✓"))
             {
                 HideMarkdownPreview ();
                 previewMarkdownItem.Title = "  _Preview Markdown";
@@ -407,7 +378,7 @@ internal sealed class EditorClet : IViewerClet
             ReadOnly = true,
             Text = fileName ?? "<untitled>",
             CanFocus = false,
-            Width = Dim.Auto (DimAutoStyle.Text, 12),
+            Width = Dim.Auto (DimAutoStyle.Text, 12)
         };
 
         // --- Local state helpers ---
@@ -1295,6 +1266,38 @@ internal sealed class EditorClet : IViewerClet
         }
 
         return new () { Status = CletRunStatus.Ok };
+
+        void OnEditorViewportChanged (object? sender, DrawEventArgs e)
+        {
+            if (preview is null || syncingScroll)
+            {
+                return;
+            }
+
+            syncingScroll = true;
+
+            try
+            {
+                int editorContentHeight = editor.GetContentSize ().Height;
+                int editorViewportHeight = editor.Viewport.Height;
+                int maxEditorY = Math.Max (0, editorContentHeight - editorViewportHeight);
+                int editorY = editor.Viewport.Y;
+
+                int previewContentHeight = preview.GetContentSize ().Height;
+                int previewViewportHeight = preview.Viewport.Height;
+                int maxPreviewY = Math.Max (0, previewContentHeight - previewViewportHeight);
+
+                int newY = maxEditorY > 0
+                    ? (int)((long)editorY * maxPreviewY / maxEditorY)
+                    : 0;
+
+                preview.Viewport = preview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
+            }
+            finally
+            {
+                syncingScroll = false;
+            }
+        }
 
         void NewFile ()
         {
