@@ -104,6 +104,32 @@ public class CletUITests
             new EditorClet (), "edit.ans", "<untitled>", width: 80, height: 20);
 
     [Fact]
+    public async Task EditorClet_LoadedMarkdownFile_MatchesAnsiGolden ()
+        => await WithTempDirectoryAsync (async root =>
+        {
+            string path = Path.Combine (root, "sample.md");
+            File.WriteAllText (path, "# Hello\n\nBody\n");
+
+            await using CletUIHarness<object?> harness = await CletUIHarness<object?>.StartViewerAsync (
+                new EditorClet (),
+                options: new CletRunOptions
+                {
+                    Arguments = [path],
+                    AllowedFiles = [path],
+                },
+                width: 120,
+                height: 20);
+
+            string snapshot = harness.SnapshotText ();
+            Assert.Contains ("MarkDown", snapshot);
+            Assert.Contains ("Default ▼", snapshot);
+            Assert.Contains ("Loaded 14 B", snapshot);
+            Assert.Single (AllIndexesOf (snapshot, "Loaded 14 B"));
+            Assert.Contains ("sample.md", snapshot);
+            harness.AssertMatchesAnsiGolden ("edit-markdown.ans");
+        });
+
+    [Fact]
     public async Task MarkdownClet_InitialRender_MatchesAnsiGolden ()
         => await AssertViewerRenderAsync (
             new MarkdownClet (), "md.ans", "Hello",
@@ -158,6 +184,17 @@ public class CletUITests
 
     private static CletRunOptions Options (string name, string value)
         => new () { CletOptions = new Dictionary<string, string> { [name] = value } };
+
+    private static IEnumerable<int> AllIndexesOf (string text, string value)
+    {
+        int index = 0;
+
+        while ((index = text.IndexOf (value, index, StringComparison.Ordinal)) >= 0)
+        {
+            yield return index;
+            index += value.Length;
+        }
+    }
 
     private static async Task WithTempDirectoryAsync (Func<string, Task> run)
     {
