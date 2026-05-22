@@ -214,19 +214,13 @@ internal static class MarkdownHelpRenderer
         foreach (IClet clet in registry.All)
         {
             string aliases = clet.Aliases.Count <= 1
-                ? $"`{clet.PrimaryAlias}`"
-                : string.Join (", ", clet.Aliases.Select (a => $"`{a}`"));
+                ? $"[{clet.PrimaryAlias}](clet:help:{clet.PrimaryAlias})"
+                : string.Join (", ", clet.Aliases.Select (a => $"[{a}](clet:help:{a})"));
 
             string options = BuildOptionsColumn (clet);
 
             sb.AppendLine ($"| {aliases} | {clet.Description} | {options} |");
         }
-
-        // Links don't work inside table cells (gui-cs/Terminal.Gui#5227), so add a
-        // clickable list after the table for help navigation.
-        sb.AppendLine ();
-        sb.Append ("Click for details: ");
-        sb.AppendLine (string.Join (", ", registry.All.Select (c => $"[{c.PrimaryAlias}](clet:help:{c.PrimaryAlias})")));
 
         return sb.ToString ();
     }

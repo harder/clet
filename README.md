@@ -126,9 +126,20 @@ Exit codes:
 - `2` usage error
 - `130` cancelled (SIGINT convention).
 
-### Demo
+### Demos
 
-![demo](./docs/images/demo.gif)
+**`clet help`**
+
+![clet help](./docs/images/clet-help.gif)
+
+**`clet pick-file`**
+
+![clet pick-file](./docs/images/clet-pick-file.gif)
+
+**`clet color`**
+
+![clet color](./docs/images/clet-color.gif)
+
 
 ## RC feedback
 
@@ -212,6 +223,10 @@ Or, you can pick from a built-in Terminal.Gui Theme. This example picks the `And
 ```
 
 <img width="576" height="131" alt="image" src="https://github.com/user-attachments/assets/df36bca2-25b5-4904-af51-5a9de9e9be35" />
+
+Here's `clet color` with the Anders theme applied:
+
+![clet color with Anders theme](./docs/images/clet-color.gif)
 
 All clets render with the `Base` color scheme, so customizing `Base` controls every clet's appearance. See the [Terminal.Gui Configuration docs](https://gui-cs.github.io/Terminal.Gui/docs/configuration.html) for the full schema.
 
