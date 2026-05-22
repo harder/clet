@@ -28,8 +28,17 @@ $binary = "./src/Clet/bin/Debug/net10.0/Clet.exe"
 # The ColorPicker has H/S/V sliders. Focus starts on H (hue).
 # Tab moves between sliders. CursorRight/Left adjusts values.
 #
+# Theme: Anders theme is activated via ~/.tui/clet.config.json before recording.
+# This is also used in the README "Q: Theming?" section.
+#
 # Pacing: --keystroke-delay 70 (smooth slider movement)
 $ks = 'wait:1500,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,CursorRight,wait:500,Tab,CursorLeft,CursorLeft,CursorLeft,wait:500,Enter'
+
+# Temporarily enable Anders theme
+$configPath = "$env:USERPROFILE\.tui\clet.config.json"
+$backup = Get-Content $configPath -Raw
+$themed = $backup -replace '// "Theme": "Anders"', '"Theme": "Anders"'
+Set-Content $configPath $themed -Encoding utf8
 
 tuirec record `
     --binary $binary `
@@ -45,6 +54,9 @@ tuirec record `
 
 # Copy to final location
 Copy-Item recording.gif ./docs/images/clet-color.gif -Force
+
+# Restore original config
+Set-Content $configPath $backup -Encoding utf8
 ```
 
 ## Demo sequence
