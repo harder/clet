@@ -11,15 +11,15 @@
 
 Version is controlled by `<Version>` in `src/Clet/Clet.csproj`. The release workflow auto-increments a build number on each run.
 
-| Phase | csproj `<Version>` | main produces | develop produces |
-|-------|--------------------|---------------|------------------|
-| Alpha | `1.0.0-alpha` | `v1.0.0-alpha.1`, `.2`, `.3` ... | `v1.0.0-develop.1`, `.2`, `.3` ... |
-| Beta | `1.0.0-beta` | `v1.0.0-beta.1`, `.2`, ... | `v1.0.0-develop.N` ... |
-| Stable | `1.0.0` | `v1.0.0`, `v1.0.1`, `v1.0.2` ... | `v1.0.1-develop.1`, ... |
+| Phase | csproj `<Version>` | main produces |
+|-------|--------------------|---------------|
+| Alpha | `1.0.0-alpha` | `v1.0.0-alpha.1`, `.2`, `.3` ... |
+| Beta | `1.0.0-beta` | `v1.0.0-beta.1`, `.2`, ... |
+| Stable | `1.0.0` | `v1.0.0`, `v1.0.1`, `v1.0.2` ... |
 
 To move between phases, change `<Version>` in the csproj and merge to main.
 
-Build numbers auto-increment by finding the latest matching git tag (`v1.0.0-alpha.*`, `v1.0.0-develop.*`, etc.).
+Build numbers auto-increment by finding the latest matching git tag (`v1.0.0-alpha.*`, `v1.0.0-beta.*`, etc.).
 
 ## Workflows
 
@@ -37,9 +37,9 @@ Runs on every push and every PR targeting `develop` or `main`.
 | Trigger | When | Channel |
 |---------|------|---------|
 | Push to `main` (changes in `src/` or `tests/`) | Merge develop → main | main |
-| Push to `develop` (changes in `src/` or `tests/`) | PR merge to develop | develop |
-| `repository_dispatch` from Terminal.Gui | TG release or develop publish | develop |
-| `workflow_dispatch` (manual) | Rollback patches, dry-runs | depends on branch |
+| `repository_dispatch` from Terminal.Gui | TG main-branch publish (`tg-main-published`) | main |
+| `repository_dispatch` from Terminal.Gui.Editor | Editor main-branch publish (`editor-main-published`) | main |
+| `workflow_dispatch` (manual) | Rollback patches, dry-runs | main |
 
 **Pipeline:**
 
@@ -52,21 +52,24 @@ resolve-version → build (3 RIDs) → tag → publish-nuget
 
 **Build matrix:** `osx-arm64`, `linux-x64`, `win-x64`. Each RID builds AOT, runs unit + integration + smoke tests, uploads artifacts.
 
-**Tagging:** Every successful build is tagged (`v1.0.0-alpha.3`, `v1.0.0-develop.5`, etc.) so future runs can find the latest build number.
+**Tagging:** Every successful build is tagged (`v1.0.0-alpha.3`, `v1.0.0-beta.5`, `v1.0.0`, etc.) so future runs can find the latest build number.
 
-**NuGet:** Both channels publish to package id `clet` (see [D-024](../../specs/decisions.md)). Prerelease versions (`-alpha`, `-develop`) are hidden from default `dotnet tool install -g clet`; consumers opt in with `--prerelease`.
+**NuGet:** Main publishes to package id `clet` (see [D-024](../../specs/decisions.md)). Prerelease versions (`-alpha`, `-beta`, `-rc`) are hidden from default `dotnet tool install -g clet`; consumers opt in with `--prerelease`.
 
 **Homebrew / WinGet:** Only on stable main releases (version has no `-` suffix). Both are placeholders until `gui-cs/homebrew-tap` exists and WinGet tooling is wired (D-012).
 
-## Terminal.Gui version
+## Terminal.Gui versions
 
-The TG dependency version is set in the csproj as `<TerminalGuiVersion>`. The release workflow can override it via:
+The TG dependency versions are set in `Directory.Build.props` as `<TerminalGuiVersion>` and `<TerminalGuiEditorVersion>`. The release workflow can override them via:
 
 - `repository_dispatch` payload: `client_payload.tg_version`
+- `repository_dispatch` payload: `client_payload.tge_version`
 - `workflow_dispatch` input: `tg_version`
+- `workflow_dispatch` input: `tge_version`
 - MSBuild property: `-p:TerminalGuiVersion=2.0.3`
+- MSBuild property: `-p:TerminalGuiEditorVersion=2.2.5`
 
-See `specs/decisions.md` D-020 and D-023.
+Release builds reject Terminal.Gui or Terminal.Gui.Editor versions older than the latest stable NuGet release.
 
 ## Secrets and variables
 
@@ -83,7 +86,7 @@ See `docs/runbooks/release-rollback.md`.
 
 ## Related decisions
 
-- **D-023** — Two-branch versioning (main + develop)
+- **D-023** — Two-branch versioning (historical context; release publishing is now main-only)
 - **D-022** — Independent versioning from TG (superseded by D-023, principle retained)
 - **D-020** — TG dispatch types and MSBuild version variable
 - **D-012** — Code signing deferred post-1.0

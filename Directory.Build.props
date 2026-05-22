@@ -15,7 +15,7 @@
     <!-- Pinned Terminal.Gui version. CI / release workflows can override via -p:TerminalGuiVersion=<x>. -->
     <TerminalGuiVersion Condition="'$(TerminalGuiVersion)' == ''">2.2.2</TerminalGuiVersion>
     <!-- Pinned Terminal.Gui.Editor version. CI / release workflows can override via -p:TerminalGuiEditorVersion=<x>. -->
-    <TerminalGuiEditorVersion Condition="'$(TerminalGuiEditorVersion)' == ''">2.2.4</TerminalGuiEditorVersion>
+    <TerminalGuiEditorVersion Condition="'$(TerminalGuiEditorVersion)' == ''">2.2.5</TerminalGuiEditorVersion>
   </PropertyGroup>
 
 </Project>
