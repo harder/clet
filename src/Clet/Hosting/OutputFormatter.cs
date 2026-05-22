@@ -10,9 +10,17 @@ internal static class OutputFormatter
 
         if (outputPath is not null)
         {
+            if (result.Status != CletRunStatus.Ok)
+            {
+                WriteCore (result, jsonOutput, stdout, stderr);
+
+                return true;
+            }
+
             try
             {
-                target = new StreamWriter (outputPath, append: false, encoding: System.Text.Encoding.UTF8);
+                FileStream stream = new (outputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                target = new StreamWriter (stream, System.Text.Encoding.UTF8);
             }
             catch (Exception ex)
             {
