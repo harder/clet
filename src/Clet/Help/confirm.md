@@ -4,11 +4,11 @@
 # Yes/No confirmation:
 clet confirm --prompt "Deploy to production?"
 
-# Equivalent using --title:
+# --title and --prompt are interchangeable:
 clet confirm --title "Delete 40k rows?"
 
 # Default to yes:
-clet confirm --initial "true" --prompt "Continue?"
+clet confirm --initial "true" --title "Continue?"
 
 # Use in a script:
 if clet confirm --prompt "Apply patch?"; then
