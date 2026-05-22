@@ -350,7 +350,7 @@ After all matrix jobs and smoke tests pass. Channel determines which publish ste
 
 | Channel | Trigger | NuGet | Homebrew | WinGet |
 |---------|---------|:-----:|:--------:|:------:|
-| Prerelease | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has `-alpha`, `-beta`, or `-rc` | prerelease | — | — |
+| Prerelease | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has `-rc` | prerelease | — | — |
 | Stable | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has no prerelease suffix | stable | build-from-source | manifest PR |
 
 **.NET tool** (NuGet) — follows the [mdv](https://github.com/gui-cs/mdv) pattern: `<PackAsTool>true</PackAsTool>`, `<ToolCommandName>clet</ToolCommandName>`, `<PackageId>clet</PackageId>` on `src/Clet/Clet.csproj`. Install: `dotnet tool install -g clet`. See [D-019](decisions.md) (packaging) and [D-024](decisions.md) (package id).
@@ -370,7 +370,7 @@ If any publish step fails:
 
 clet maintains its own SemVer, independent of Terminal.Gui's version. Major bumps = `schemaVersion` changes (§4.3.1). Minor bumps = new clets or significant CLI additions. Patch bumps = bug fixes, including rebuilds against new TG versions. The TG version is surfaced in `--version` output for diagnostics only. See [D-022](decisions.md).
 
-**Auto-increment.** The release workflow reads the base version from `Clet.csproj <Version>`. For prerelease phases (`1.0.0-alpha`, `1.0.0-beta`, `1.0.0-rc`), it finds the latest matching `vBASE-PHASE.*` tag and increments the prerelease build number. For stable phases (`1.0.0`), it finds the latest stable `vMAJOR.MINOR.*` tag and increments patch. Manual `workflow_dispatch` can override the computed version.
+**Auto-increment.** The release workflow reads the base version from `Clet.csproj <Version>`. For the rc phase (`1.0.0-rc`), it finds the latest matching `v1.0.0-rc.*` tag and increments the prerelease build number. For stable phases (`1.0.0`), it finds the latest stable `vMAJOR.MINOR.*` tag and increments patch. Manual `workflow_dispatch` can override the computed version (required when dispatching from a non-main branch).
 
 `Directory.Build.props` declares `<TerminalGuiVersion>` and `<TerminalGuiEditorVersion>` known-good pins, and the Clet project references both via MSBuild properties. The release workflow passes `-p:TerminalGuiVersion=${{ env.TG_VERSION }}` and `-p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }}`. Release restores fail if either resolved version is older than the latest stable NuGet package.
 
@@ -392,8 +392,8 @@ Schedule follows TG releases, not a calendar.
 | **v0.1 alpha** | [#2](https://github.com/gui-cs/clet/issues/2) | Repo bootstrapped; abstractions, registry, JSON in place; `select` clet working in unit + integration tests. No runnable binary — see v0.11. |
 | **v0.11** | [#9](https://github.com/gui-cs/clet/issues/9) | Runnable binary. CLI host per §4.6/§4.7. `clet --help` / `--version` / `help <alias>` / `list --json` / `<alias> --json` work end-to-end. Process-level smoke harness (Process.Start-based; TUIcast keystroke harness deferred to v0.3 — [D-007](decisions.md)). |
 | **v0.3 alpha** | [#3](https://github.com/gui-cs/clet/issues/3) | All 14 input clets functional. JSON schema drafted. AOT publish green. TUIcast keystroke harness wired up. |
-| **v0.5 beta** | [#4](https://github.com/gui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); main-channel prerelease workflow proven. Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
-| **v0.75 alpha** | [#33](https://github.com/gui-cs/clet/issues/33) | Friends-and-family alpha. >=5 external testers; >=3 Issues filed by non-maintainers; maintainer dogfooding for >=2 weeks; >=1 AI agent harness consuming `--json`; all P0 alpha bugs resolved or deferred. |
+| **v0.5 beta** | [#4](https://github.com/gui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); main-channel rc workflow proven. Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
+| **v0.75 rc** | [#33](https://github.com/gui-cs/clet/issues/33) | Friends-and-family rc. >=5 external testers; >=3 Issues filed by non-maintainers; maintainer dogfooding for >=2 weeks; >=1 AI agent harness consuming `--json`; all P0 rc bugs resolved or deferred. |
 | **v0.9 RC** | [#5](https://github.com/gui-cs/clet/issues/5) | All §6 test layers passing. Release workflow proven against a real TG release. Homebrew formula + WinGet manifest in working-draft form. One real release cycle exercised. Rollback runbook exercised once. |
 | **v1.0 GA** | [#6](https://github.com/gui-cs/clet/issues/6) | Tied to TG v2 GA. Brew, WinGet, NuGet channels live. Documentation published. |
 
@@ -404,7 +404,7 @@ Schedule follows TG releases, not a calendar.
 | AOT issue surfaces during build or smoke test | Medium | Medium | AOT publish tests ([`tests/SPEC.md`](../tests/SPEC.md) §2.7) catch before publish; fall back to self-contained single-file (~30MB) if blocking. |
 | Native installer pipeline (Homebrew/WinGet) ops cost | Medium | Medium | §5.3 smoke gate + release-pipeline dry-runs catch most issues; `docs/runbooks/release-rollback.md` documents withdrawal. |
 | Markdown View quality regression vs `glow` | Low | Medium | TG-side golden-file corpus (#5156); quarterly comparison run. |
-| Develop publishes create NuGet version sprawl | Medium | Low | NuGet handles the volume; prerelease semantics keep develops off `latest`. |
+| Develop publishes create NuGet version sprawl | ~~Retired~~ | — | Develop no longer publishes. Main-only rc channel eliminates version sprawl. |
 | First real release fails mid-publish | Medium | High | Weekly release-pipeline dry-runs; `docs/runbooks/release-rollback.md` walks through per-channel withdrawal. Runbook exercised before v0.9 RC. |
 | Naming concerns about "clet" | Low | Low | Acknowledge in docs; outlast. |
 
@@ -422,7 +422,7 @@ Schedule follows TG releases, not a calendar.
 Steps 1-10 are done (through v0.5). Remaining:
 
 11. **Publish channels:** Homebrew (build-from-source), then WinGet, then NuGet tool push.
-12. **v0.75 alpha** — friends-and-family testing ([#33](https://github.com/gui-cs/clet/issues/33)).
+12. **v0.75 rc** — friends-and-family testing ([#33](https://github.com/gui-cs/clet/issues/33)).
 13. **v0.9 RC** — release workflow proven against real TG release; Homebrew/WinGet manifests in working-draft form; rollback runbook exercised.
 14. **v1.0 GA.**
 

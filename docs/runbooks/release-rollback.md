@@ -6,7 +6,7 @@
 
 `clet` auto-publishes from the `main` release workflow:
 
-- **Prerelease phase** (`-alpha`, `-beta`, or `-rc` suffix from `src/Clet/Clet.csproj`): NuGet `clet` prerelease only (off `latest`; opt-in via `--prerelease`). See [D-024](../../specs/decisions.md) for the package id.
+- **Prerelease phase** (`-rc` suffix from `src/Clet/Clet.csproj`): NuGet `clet` prerelease only (off `latest`; opt-in via `--prerelease`). See [D-024](../../specs/decisions.md) for the package id.
 - **Stable phase** (no `-` suffix in version): NuGet `clet` (latest), Homebrew (gui-cs tap), WinGet (`microsoft/winget-pkgs`).
 
 When the §5.3 smoke gate fails, the workflow halts and nothing reaches users — that case is an *aborted* release, not a *bad* release, and is out of scope for this runbook. This runbook covers the case where the gate let something through (a regression it didn't cover, a manifest bug, a signing failure mid-publish) and one or more channels carry a broken `clet`.

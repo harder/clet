@@ -13,13 +13,12 @@ Version is controlled by `<Version>` in `src/Clet/Clet.csproj`. The release work
 
 | Phase | csproj `<Version>` | main produces |
 |-------|--------------------|---------------|
-| Alpha | `1.0.0-alpha` | `v1.0.0-alpha.1`, `.2`, `.3` ... |
-| Beta | `1.0.0-beta` | `v1.0.0-beta.1`, `.2`, ... |
+| RC | `1.0.0-rc` | `v1.0.0-rc.1`, `.2`, `.3` ... |
 | Stable | `1.0.0` | `v1.0.0`, `v1.0.1`, `v1.0.2` ... |
 
 To move between phases, change `<Version>` in the csproj and merge to main.
 
-Build numbers auto-increment by finding the latest matching git tag (`v1.0.0-alpha.*`, `v1.0.0-beta.*`, etc.).
+Build numbers auto-increment by finding the latest matching git tag (`v1.0.0-rc.*`, etc.).
 
 ## Workflows
 
@@ -41,6 +40,8 @@ Runs on every push and every PR targeting `develop` or `main`.
 | `repository_dispatch` from Terminal.Gui.Editor | Editor main-branch publish (`editor-main-published`) | main |
 | `workflow_dispatch` (manual) | Rollback patches, dry-runs | main |
 
+> **Branch guard:** Manual dispatch from a non-`main` branch is rejected unless `version_override` is provided. This prevents accidental prereleases from feature branches.
+
 **Pipeline:**
 
 ```
@@ -52,9 +53,9 @@ resolve-version → build (3 RIDs) → tag → publish-nuget
 
 **Build matrix:** `osx-arm64`, `linux-x64`, `win-x64`. Each RID builds AOT, runs unit + integration + smoke tests, uploads artifacts.
 
-**Tagging:** Every successful build is tagged (`v1.0.0-alpha.3`, `v1.0.0-beta.5`, `v1.0.0`, etc.) so future runs can find the latest build number.
+**Tagging:** Every successful build is tagged (`v1.0.0-rc.3`, `v1.0.0`, etc.) so future runs can find the latest build number.
 
-**NuGet:** Main publishes to package id `clet` (see [D-024](../../specs/decisions.md)). Prerelease versions (`-alpha`, `-beta`, `-rc`) are hidden from default `dotnet tool install -g clet`; consumers opt in with `--prerelease`.
+**NuGet:** Main publishes to package id `clet` (see [D-024](../../specs/decisions.md)). Prerelease versions (`-rc`) are hidden from default `dotnet tool install -g clet`; consumers opt in with `--prerelease`.
 
 **Homebrew / WinGet:** Only on stable main releases (version has no `-` suffix). Both are placeholders until `gui-cs/homebrew-tap` exists and WinGet tooling is wired (D-012).
 

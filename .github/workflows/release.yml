@@ -2,10 +2,10 @@ name: Release
 
 # Versioning scheme:
 #
-#   main branch  → v1.0.0-alpha.1, v1.0.0-alpha.2, ...
+#   main branch  → v1.0.0-rc.1, v1.0.0-rc.2, ...
 #                   (base from csproj <Version>, build number auto-increments)
 #
-#   When alpha phase ends, change csproj <Version> to 1.0.0 (no suffix).
+#   When rc phase ends, change csproj <Version> to 1.0.0 (no suffix).
 #   Then main produces: v1.0.0, v1.0.1, ... (patch auto-increment).
 #
 # Triggers:
@@ -48,6 +48,12 @@ jobs:
       tge_version: ${{ steps.version.outputs.tge_version }}
       channel: ${{ steps.version.outputs.channel }}
     steps:
+      - name: Guard non-main dispatch
+        if: github.event_name == 'workflow_dispatch' && github.ref_name != 'main' && github.event.inputs.version_override == ''
+        run: |
+          echo "::error::workflow_dispatch from non-main branch '${{ github.ref_name }}' requires version_override."
+          exit 2
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -111,7 +117,7 @@ jobs:
             exit 0
           fi
 
-          # Read base version from csproj (e.g. "1.0.0-alpha" or "1.0.0")
+          # Read base version from csproj (e.g. "1.0.0-rc" or "1.0.0")
           CSPROJ_VERSION=$(sed -n 's/.*<Version>\([^<]*\)<.*/\1/p' src/Clet/Clet.csproj | head -1)
           # Split into base (1.0.0) and prerelease phase (alpha, beta, rc, or empty)
           BASE_VERSION="${CSPROJ_VERSION%%-*}"
@@ -126,8 +132,8 @@ jobs:
           PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
 
           if [ -n "$PHASE" ]; then
-            # Main channel alpha/beta/rc phase: version is BASE-PHASE.N, auto-increment N
-            # Find latest tag matching v1.0.0-alpha.*
+            # Main channel rc phase: version is BASE-PHASE.N, auto-increment N
+            # Find latest tag matching v1.0.0-rc.*
             LATEST_TAG=$(git tag --list "v${BASE_VERSION}-${PHASE}.*" --sort=-v:refname | head -1)
             if [ -n "$LATEST_TAG" ]; then
               # Extract the build number (last dot-separated segment)
@@ -220,7 +226,7 @@ jobs:
           retention-days: 30
 
   # Tag every successful build so future runs can find the latest build number.
-  # Tags: v1.0.0-alpha.3, v1.0.0 (stable)
+  # Tags: v1.0.0-rc.3, v1.0.0 (stable)
   tag:
     needs: [resolve-version, build]
     runs-on: ubuntu-latest
