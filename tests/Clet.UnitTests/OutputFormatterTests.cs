@@ -183,6 +183,78 @@ public class OutputFormatterTests
     }
 
     [Fact]
+    public void OutputPath_ExistingFile_ReturnsFalseAndDoesNotOverwrite ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Ok, "new", null, null);
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = Path.Combine (Path.GetTempPath (), $"clet_test_{Guid.NewGuid ()}.txt");
+        File.WriteAllText (path, "existing");
+
+        try
+        {
+            bool success = OutputFormatter.Write (result, jsonOutput: false, stdout, stderr, path);
+
+            Assert.False (success);
+            Assert.Empty (stdout.ToString ());
+            Assert.Contains ("cannot write to", stderr.ToString ());
+            Assert.Equal ("existing", File.ReadAllText (path));
+        }
+        finally
+        {
+            File.Delete (path);
+        }
+    }
+
+    [Fact]
+    public void OutputPath_Error_DoesNotCreateFile ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Error, null, "validation", "bad input");
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = Path.Combine (Path.GetTempPath (), $"clet_test_{Guid.NewGuid ()}.txt");
+
+        try
+        {
+            bool success = OutputFormatter.Write (result, jsonOutput: false, stdout, stderr, path);
+
+            Assert.True (success);
+            Assert.False (File.Exists (path));
+            Assert.Empty (stdout.ToString ());
+            Assert.Contains ("validation", stderr.ToString ());
+            Assert.Contains ("bad input", stderr.ToString ());
+        }
+        finally
+        {
+            File.Delete (path);
+        }
+    }
+
+    [Fact]
+    public void OutputPath_JsonError_DoesNotCreateFileAndWritesStdoutEnvelope ()
+    {
+        BoxedCletResult result = new (CletRunStatus.Error, null, "validation", "bad input");
+        StringWriter stdout = new ();
+        StringWriter stderr = new ();
+        string path = Path.Combine (Path.GetTempPath (), $"clet_test_{Guid.NewGuid ()}.json");
+
+        try
+        {
+            bool success = OutputFormatter.Write (result, jsonOutput: true, stdout, stderr, path);
+
+            Assert.True (success);
+            Assert.False (File.Exists (path));
+            Assert.Contains ("\"status\":\"error\"", stdout.ToString ());
+            Assert.Contains ("\"code\":\"validation\"", stdout.ToString ());
+            Assert.Empty (stderr.ToString ());
+        }
+        finally
+        {
+            File.Delete (path);
+        }
+    }
+
+    [Fact]
     public void OutputPath_Json_WritesJsonToFile ()
     {
         BoxedCletResult result = new (CletRunStatus.Ok, 42, null, null);

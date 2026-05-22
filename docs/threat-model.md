@@ -4,7 +4,7 @@
 
 ## Scope
 
-This document covers the attack surface of the `clet` CLI binary (`src/Clet/`) as shipped in v1.0. It does not cover the Terminal.Gui library itself (that's TG's responsibility), CI/CD pipeline security (covered in `docs/runbooks/release-rollback.md`), or post-v1.0 plugin loading.
+This document covers the attack surface of the `clet` CLI binary (`src/Clet/`) as shipped in v1.0. It does not cover the Terminal.Gui library itself (that's TG's responsibility) or post-v1.0 plugin loading. Release-pipeline risks for clet's own GitHub Actions workflows are covered below; operational rollback steps live in `docs/runbooks/release-rollback.md`.
 
 ## Trust boundaries
 
@@ -113,7 +113,8 @@ NativeAOT publishing (`PublishAot=true`) further closes this surface: AOT binari
 
 **Mitigation:**
 - `--timeout` flag enables callers to set an upper bound on execution time.
-- `clet md` reads files with `File.ReadAllText()` — bounded by available memory, same as any CLI tool.
+- `--initial` is capped at 64 K characters after alias resolution.
+- `clet md` caps stdin at 8 MiB, file reads at 16 MiB per file, glob expansions at 128 files, and aggregate glob content at 32 MiB.
 - No network I/O, no database, no shared state between invocations. Each `clet` invocation is a short-lived process.
 
 ### JSON output integrity
