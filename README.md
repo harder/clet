@@ -126,13 +126,20 @@ Exit codes:
 - `2` usage error
 - `130` cancelled (SIGINT convention).
 
-### Demo
+### Demos
+
+**`clet help`**
 
 ![clet help](./docs/images/clet-help.gif)
 
+**`clet pick-file`**
+
 ![clet pick-file](./docs/images/clet-pick-file.gif)
 
-![demo](./docs/images/demo.gif)
+**`clet color`**
+
+![clet color](./docs/images/clet-color.gif)
+
 
 ## Alpha feedback
 
