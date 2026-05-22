@@ -318,9 +318,9 @@ Target binary size: ~8MB. Cold-start budget: <100ms on Apple Silicon, <100ms on 
 
 ### 5.1 Trigger
 
-`gui-cs/Terminal.Gui` fires a `repository_dispatch` to `gui-cs/clet` on two events: every `*-develop.NN` NuGet publish (develop channel) and every release tag (stable channel). Channel is derived from the version string: if `tg_version` contains `-` (SemVer prerelease suffix), the dispatch is develop; otherwise release. See [D-020](decisions.md).
+`gui-cs/Terminal.Gui` and `gui-cs/Editor` fire `repository_dispatch` events to `gui-cs/clet` for main-branch package publishes (`tg-main-published` and `editor-main-published`). Develop-package dispatches do not publish clet builds.
 
-Additionally, the release workflow fires on pushes to clet's own main branch (changes in `src/` or `tests/`) and manual `workflow_dispatch`. See [D-022](decisions.md).
+Additionally, the release workflow fires on pushes to clet's own main branch (changes in `src/` or `tests/`) and manual `workflow_dispatch`.
 
 ### 5.2 Build matrix
 
@@ -350,8 +350,8 @@ After all matrix jobs and smoke tests pass. Channel determines which publish ste
 
 | Channel | Trigger | NuGet | Homebrew | WinGet |
 |---------|---------|:-----:|:--------:|:------:|
-| Develop | `tg-develop-published` / push / dispatch | prerelease | — | — |
-| Release | `tg-released`          | stable | build-from-source | manifest PR |
+| Prerelease | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has `-alpha`, `-beta`, or `-rc` | prerelease | — | — |
+| Stable | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has no prerelease suffix | stable | build-from-source | manifest PR |
 
 **.NET tool** (NuGet) — follows the [mdv](https://github.com/gui-cs/mdv) pattern: `<PackAsTool>true</PackAsTool>`, `<ToolCommandName>clet</ToolCommandName>`, `<PackageId>clet</PackageId>` on `src/Clet/Clet.csproj`. Install: `dotnet tool install -g clet`. See [D-019](decisions.md) (packaging) and [D-024](decisions.md) (package id).
 
@@ -362,17 +362,17 @@ After all matrix jobs and smoke tests pass. Channel determines which publish ste
 ### 5.5 Failure handling
 
 If any publish step fails:
-- The workflow opens an issue titled `Release v<VERSION> failed (<channel>)`.
-- Release failures page; develop failures don't (next develop publish supersedes within hours).
+- The workflow opens or updates an issue titled `Release clet v<VERSION> failed (<channel>)`.
+- Release failures page; repeated failures for the same open incident are added as comments.
 - Already-published channels are noted; rollback is manual (see `docs/runbooks/release-rollback.md`).
 
 ### 5.6 Versioning
 
 clet maintains its own SemVer, independent of Terminal.Gui's version. Major bumps = `schemaVersion` changes (§4.3.1). Minor bumps = new clets or significant CLI additions. Patch bumps = bug fixes, including rebuilds against new TG versions. The TG version is surfaced in `--version` output for diagnostics only. See [D-022](decisions.md).
 
-**Auto-increment.** The release workflow reads the base version from `Clet.csproj <Version>`, finds the latest `vMAJOR.MINOR.*` tag, and increments patch. For develop-channel builds, the TG prerelease suffix is appended (e.g. `1.0.1-develop.37`). A git tag on HEAD overrides the computed version for minor/major bumps.
+**Auto-increment.** The release workflow reads the base version from `Clet.csproj <Version>`. For prerelease phases (`1.0.0-alpha`, `1.0.0-beta`, `1.0.0-rc`), it finds the latest matching `vBASE-PHASE.*` tag and increments the prerelease build number. For stable phases (`1.0.0`), it finds the latest stable `vMAJOR.MINOR.*` tag and increments patch. Manual `workflow_dispatch` can override the computed version.
 
-The csproj declares `<TerminalGuiVersion>` (defaulted to a known-good develop build for local dev) and references TG via `<PackageReference Include="Terminal.Gui" Version="$(TerminalGuiVersion)" />`. The release workflow passes `-p:TerminalGuiVersion=${{ env.TG_VERSION }}`. See [D-020](decisions.md).
+`Directory.Build.props` declares `<TerminalGuiVersion>` and `<TerminalGuiEditorVersion>` known-good pins, and the Clet project references both via MSBuild properties. The release workflow passes `-p:TerminalGuiVersion=${{ env.TG_VERSION }}` and `-p:TerminalGuiEditorVersion=${{ env.TGE_VERSION }}`. Release restores fail if either resolved version is older than the latest stable NuGet package.
 
 ## 6. Testing
 
@@ -392,7 +392,7 @@ Schedule follows TG releases, not a calendar.
 | **v0.1 alpha** | [#2](https://github.com/gui-cs/clet/issues/2) | Repo bootstrapped; abstractions, registry, JSON in place; `select` clet working in unit + integration tests. No runnable binary — see v0.11. |
 | **v0.11** | [#9](https://github.com/gui-cs/clet/issues/9) | Runnable binary. CLI host per §4.6/§4.7. `clet --help` / `--version` / `help <alias>` / `list --json` / `<alias> --json` work end-to-end. Process-level smoke harness (Process.Start-based; TUIcast keystroke harness deferred to v0.3 — [D-007](decisions.md)). |
 | **v0.3 alpha** | [#3](https://github.com/gui-cs/clet/issues/3) | All 14 input clets functional. JSON schema drafted. AOT publish green. TUIcast keystroke harness wired up. |
-| **v0.5 beta** | [#4](https://github.com/gui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); continuous-release loop proven on develop channel ([D-020](decisions.md)). Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
+| **v0.5 beta** | [#4](https://github.com/gui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); main-channel prerelease workflow proven. Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
 | **v0.75 alpha** | [#33](https://github.com/gui-cs/clet/issues/33) | Friends-and-family alpha. >=5 external testers; >=3 Issues filed by non-maintainers; maintainer dogfooding for >=2 weeks; >=1 AI agent harness consuming `--json`; all P0 alpha bugs resolved or deferred. |
 | **v0.9 RC** | [#5](https://github.com/gui-cs/clet/issues/5) | All §6 test layers passing. Release workflow proven against a real TG release. Homebrew formula + WinGet manifest in working-draft form. One real release cycle exercised. Rollback runbook exercised once. |
 | **v1.0 GA** | [#6](https://github.com/gui-cs/clet/issues/6) | Tied to TG v2 GA. Brew, WinGet, NuGet channels live. Documentation published. |
