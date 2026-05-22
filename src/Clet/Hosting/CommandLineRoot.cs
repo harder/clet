@@ -128,7 +128,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg == "--allow-file")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --allow-file requires a file path.");
 
@@ -143,7 +143,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg == "--timeout")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --timeout requires a value (e.g. 30s, 500ms).");
 
@@ -165,7 +165,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg is "--initial" or "-i")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --initial requires a value.");
 
@@ -180,7 +180,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg is "--title" or "-t")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --title requires a value.");
 
@@ -195,7 +195,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg is "--output" or "-o")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --output requires a file path.");
 
@@ -210,7 +210,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
 
             if (arg is "--rows" or "-r")
             {
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ("error: --rows requires a value.");
 
@@ -241,7 +241,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
                     return ExitCodes.UsageError;
                 }
 
-                if (!TryReadOptionValue (args, i, clet, out string? value))
+                if (!TryReadOptionValue (args, i, clet, out string value))
                 {
                     await stderr.WriteLineAsync ($"error: option '{arg}' requires a value.");
 
