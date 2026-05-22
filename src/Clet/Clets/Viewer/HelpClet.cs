@@ -151,6 +151,24 @@ internal sealed class HelpClet (ICletRegistry registry) : IViewerClet
         window.Initialized += (_, _) =>
         {
             markdownView.Text = markdown;
+
+            // Adding links to table cells causes the Markdown view to auto-scroll
+            // to a focused link after layout. Use a counter to reset viewport on
+            // the second draw (after the focus-scroll has run).
+            int drawCount = 0;
+
+            markdownView.DrawComplete += ResetViewport;
+
+            void ResetViewport (object? sender, DrawEventArgs e)
+            {
+                drawCount++;
+
+                if (drawCount >= 2)
+                {
+                    markdownView.DrawComplete -= ResetViewport;
+                    markdownView.Viewport = markdownView.Viewport with { Y = 0 };
+                }
+            }
         };
 
         void NavigateTo (string key)
