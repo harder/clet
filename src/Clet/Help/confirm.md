@@ -4,8 +4,8 @@
 # Yes/No confirmation:
 clet confirm --prompt "Deploy to production?"
 
-# With a title:
-clet confirm --title "Confirm" --prompt "Delete 40k rows?"
+# Equivalent using --title:
+clet confirm --title "Delete 40k rows?"
 
 # Default to yes:
 clet confirm --initial "true" --prompt "Continue?"

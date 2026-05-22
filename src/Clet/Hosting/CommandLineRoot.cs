@@ -178,11 +178,11 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
                 continue;
             }
 
-            if (arg is "--title" or "-t")
+            if (arg is "--title" or "-t" or "--prompt" or "-p")
             {
                 if (!TryReadOptionValue (args, i, clet, out string value))
                 {
-                    await stderr.WriteLineAsync ("error: --title requires a value.");
+                    await stderr.WriteLineAsync ($"error: {arg} requires a value.");
 
                     return ExitCodes.UsageError;
                 }
@@ -332,7 +332,7 @@ internal sealed class CommandLineRoot (ICletRegistry registry)
             or "--allow-file"
             or "--timeout"
             or "--initial" or "-i"
-            or "--title" or "-t"
+            or "--title" or "-t" or "--prompt" or "-p"
             or "--output" or "-o"
             or "--rows" or "-r")
         {
