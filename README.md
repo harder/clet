@@ -128,6 +128,10 @@ Exit codes:
 
 ### Demo
 
+![clet help](./docs/images/clet-help.gif)
+
+![clet pick-file](./docs/images/clet-pick-file.gif)
+
 ![demo](./docs/images/demo.gif)
 
 ## Alpha feedback
