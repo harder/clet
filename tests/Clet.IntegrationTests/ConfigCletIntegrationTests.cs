@@ -15,7 +15,7 @@ public class ConfigCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -31,12 +31,12 @@ public class ConfigCletIntegrationTests
         Directory.CreateDirectory (tuiDir);
         string configPath = Path.Combine (tuiDir, "clet.config.json");
 
-        File.WriteAllText (configPath, """
+        await File.WriteAllTextAsync (configPath, """
             {
               "$schema": "https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
               "Theme": "Andersx"
             }
-            """);
+            """, TestContext.Current.CancellationToken);
 
         try
         {
@@ -59,12 +59,12 @@ public class ConfigCletIntegrationTests
         Directory.CreateDirectory (tuiDir);
         string configPath = Path.Combine (tuiDir, "clet.config.json");
 
-        File.WriteAllText (configPath, """
+        await File.WriteAllTextAsync (configPath, """
             {
               "$schema": "https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
               "Theme": "Andersx"
             }
-            """);
+            """, TestContext.Current.CancellationToken);
 
         try
         {
@@ -88,3 +88,4 @@ public class ConfigCletIntegrationTests
         }
     }
 }
+

@@ -1,15 +1,10 @@
-using Terminal.Gui;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
 
 namespace Clet;
 
-internal sealed class AliasDispatcher
+internal sealed class AliasDispatcher (ICletRegistry registry)
 {
-    private readonly ICletRegistry _registry;
-
-    public AliasDispatcher (ICletRegistry registry) => _registry = registry;
-
     public async Task<int> DispatchAsync (
         string alias,
         string? initial,
@@ -18,16 +13,16 @@ internal sealed class AliasDispatcher
         TextWriter stdout,
         TextWriter stderr)
     {
-        if (!_registry.TryResolve (alias, out IClet? clet) || clet is null)
+        if (!registry.TryResolve (alias, out IClet? clet) || clet is null)
         {
-            stderr.WriteLine ($"error: unknown alias '{alias}'. Try 'clet list' to see available clets.");
+            await stderr.WriteLineAsync ($"error: unknown alias '{alias}'. Try 'clet list' to see available clets.");
 
             return ExitCodes.UsageError;
         }
 
         if (initial is not null && !clet.TryValidateInitial (initial, options))
         {
-            stderr.WriteLine ($"error: invalid --initial value '{initial}' for '{alias}'.");
+            await stderr.WriteLineAsync ($"error: invalid --initial value '{initial}' for '{alias}'.");
 
             return ExitCodes.UsageError;
         }
@@ -114,7 +109,7 @@ internal sealed class AliasDispatcher
     private static string? ResolveViewerContent (string? initial, CletRunOptions options, TextWriter stderr)
     {
         TextReader? stdinReader = Console.IsInputRedirected ? Console.In : null;
-        var result = MarkdownContentResolver.Resolve (initial, options, stdinReader);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (initial, options, stdinReader);
 
         if (!result.IsSuccess)
         {

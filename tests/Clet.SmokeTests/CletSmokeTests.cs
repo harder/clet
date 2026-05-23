@@ -59,7 +59,7 @@ public class CletSmokeTests
     [Fact]
     public async Task HelpAlias_UnknownAlias_ExitsWithUsageError ()
     {
-        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (["help", "nope"]);
+        (int exit, _, string stderr) = await CletProcess.RunAsync (["help", "nope"]);
 
         Assert.Equal (2, exit);
         Assert.Contains ("Unknown alias", stderr);
@@ -97,7 +97,7 @@ public class CletSmokeTests
 
         string oversized = new ('x', 64 * 1024 + 1);
 
-        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (
+        (int exit, string stdout, _) = await CletProcess.RunAsync (
             ["select", "--json", "--initial", oversized]);
 
         Assert.Equal (65, exit);
@@ -110,7 +110,7 @@ public class CletSmokeTests
     {
         string oversized = new ('x', 8 * 1024 * 1024 + 1);
 
-        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (
+        (int exit, string stdout, _) = await CletProcess.RunAsync (
             ["md", "--json"], stdin: oversized);
 
         Assert.Equal (65, exit);

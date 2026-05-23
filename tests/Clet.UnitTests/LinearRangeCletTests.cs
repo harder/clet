@@ -62,7 +62,7 @@ public class LinearRangeCletTests
         };
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
             null!, null, options, cts.Token);
@@ -70,3 +70,4 @@ public class LinearRangeCletTests
         Assert.Equal (CletRunStatus.Cancelled, result.Status);
     }
 }
+

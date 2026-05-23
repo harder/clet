@@ -16,7 +16,7 @@ public class AttributePickerCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<JsonObject?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -41,3 +41,4 @@ public class AttributePickerCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

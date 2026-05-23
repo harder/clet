@@ -52,7 +52,7 @@ public class CommandLineRootTests
     {
         (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         int exit = await root.InvokeAsync (["help", "select"], cts.Token, stdout, stderr);
 
@@ -303,6 +303,19 @@ public class CommandLineRootTests
     }
 
     [Fact]
+    public async Task UnknownAlias_WithOversizedInitial_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+        string oversized = new ('x', CommandLineRoot.MaxInitialChars + 1);
+
+        int exit = await root.InvokeAsync (["nope", "--initial", oversized], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("unknown alias", stderr.ToString ());
+        Assert.DoesNotContain ("input-too-large", stderr.ToString ());
+    }
+
+    [Fact]
     public async Task Alias_InitialExceeds64KiB_Json_EmitsErrorEnvelope ()
     {
         (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
@@ -326,7 +339,7 @@ public class CommandLineRootTests
         // We're verifying the size cap doesn't trip at the boundary; the actual clet
         // result (cancellation) is incidental.
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         int exit = await root.InvokeAsync (["select", "--initial", atLimit], cts.Token, stdout, stderr);
 
@@ -374,7 +387,7 @@ public class CommandLineRootTests
 
         try
         {
-            File.WriteAllText (tempFile, "# Test File\n\nSome content.");
+            await File.WriteAllTextAsync (tempFile, "# Test File\n\nSome content.", TestContext.Current.CancellationToken);
 
             int exit = await root.InvokeAsync (["md", "--cat", "--allow-file", tempFile, tempFile], CancellationToken.None, stdout, stderr);
 
@@ -424,5 +437,40 @@ public class CommandLineRootTests
 
         Assert.Equal (ExitCodes.UsageError, exit);
         Assert.Contains ("--output", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_UnknownCletOption_ExitsWithUsageErrorWithoutSwallowingNextToken ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["text", "--unknown", "--output", "out.txt"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("unknown option '--unknown'", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_InitialFollowedByKnownFlag_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["text", "--initial", "--output", "out.txt"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("--initial requires a value", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_KnownCletOption_PassesThrough ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+        using CancellationTokenSource cts = new ();
+        await cts.CancelAsync ();
+
+        int exit = await root.InvokeAsync (["select", "--options", "Apple,Banana"], cts.Token, stdout, stderr);
+
+        Assert.Equal (ExitCodes.Cancelled, exit);
+        Assert.Empty (stderr.ToString ());
     }
 }

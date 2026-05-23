@@ -1,6 +1,4 @@
-using Terminal.Gui.App;
 using Terminal.Gui.Editor;
-using Terminal.Gui.Input;
 using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -13,37 +11,30 @@ namespace Clet;
 internal sealed class EditorSettingsDialog : Dialog
 {
     private readonly CheckBox _autoCompleteCheck;
-    private readonly CheckBox _scrollbarsCheck;
     private readonly NumericUpDown<int> _indentSize;
     private readonly CheckBox _convertTabsCheck;
     private readonly CheckBox _autoIndentCheck;
-
-    internal bool WasAccepted { get; private set; }
-
     internal EditorSettingsDialog (Editor editor)
     {
         Title = "Settings";
         Width = Dim.Percent (60);
-        Height = 16;
+        Height = 13;
 
         // --- Tab Settings tab ---
         View tabSettingsTab = new ()
         {
             Title = "_Tab Settings",
-            Width = Dim.Fill (),
-            Height = Dim.Fill (),
         };
 
+        View label = new Label () { Text = "_Indent size:" };
         _indentSize = new ()
         {
-            X = 20,
-            Y = 1,
+            X = Pos.Right (label) + 1,
             Value = editor.IndentationSize,
-            Width = 8,
         };
         _indentSize.ValueChanging += (_, e) =>
         {
-            if (e.NewValue is < 1)
+            if (e.NewValue < 1)
             {
                 e.Handled = true;
             }
@@ -51,79 +42,52 @@ internal sealed class EditorSettingsDialog : Dialog
 
         _convertTabsCheck = new ()
         {
-            X = 1,
-            Y = 3,
+            Y = Pos.Bottom (_indentSize),
             Title = "Con_vert Tabs to Spaces",
             Value = editor.ConvertTabsToSpaces ? CheckState.Checked : CheckState.UnChecked,
         };
 
         _autoIndentCheck = new ()
         {
-            X = 1,
-            Y = 5,
+            Y = Pos.Bottom (_convertTabsCheck),
             Title = "_Auto Indent",
             Value = editor.IndentationStrategy is not null ? CheckState.Checked : CheckState.UnChecked,
         };
 
         tabSettingsTab.Add (
-            new Label () { X = 1, Y = 1, Text = "_Indent size:" },
+            label,
             _indentSize,
             _convertTabsCheck,
             _autoIndentCheck);
 
         _autoCompleteCheck = new ()
         {
-            X = 1,
-            Y = 1,
-            Title = "Auto _Complete (Ctrl+Space)",
+            Title = "Auto _Complete",
             Value = editor.CompletionProvider is not null ? CheckState.Checked : CheckState.UnChecked,
-        };
-
-        _scrollbarsCheck = new ()
-        {
-            X = 1,
-            Y = 3,
-            Title = "_Scrollbars",
-            Value = editor.ViewportSettings.HasFlag (ViewportSettingsFlags.HasScrollBars)
-                ? CheckState.Checked
-                : CheckState.UnChecked,
         };
 
         // --- Config tab ---
         View configTab = new ()
         {
             Title = "_Config",
-            Width = Dim.Fill (),
-            Height = Dim.Fill (),
         };
 
-        configTab.Add (_autoCompleteCheck, _scrollbarsCheck);
+        configTab.Add (_autoCompleteCheck);
 
         // --- Tabs ---
-        Tabs tabs = new ()
-        {
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill (),
-            Height = Dim.Fill (2),
-        };
+        Tabs tabs = new ();
 
         tabs.InsertTab (0, configTab);
         tabs.InsertTab (1, tabSettingsTab);
 
         Button okBtn = new ()
         {
-            Text = "OK",
-            X = Pos.Center () - 6,
-            Y = Pos.Bottom (tabs),
-            IsDefault = true,
+            Text = Terminal.Gui.Resources.Strings.btnOk,
         };
 
         Button cancelBtn = new ()
         {
-            Text = "Cancel",
-            X = Pos.Right (okBtn) + 2,
-            Y = Pos.Bottom (tabs),
+            Text = Terminal.Gui.Resources.Strings.btnCancel,
         };
 
         okBtn.Accepting += (_, _) =>
@@ -134,8 +98,11 @@ internal sealed class EditorSettingsDialog : Dialog
 
         cancelBtn.Accepting += (_, _) => RequestStop ();
 
-        Add (tabs, okBtn, cancelBtn);
+        AddButton (cancelBtn);
+        AddButton (okBtn);
+        Add (tabs);
     }
+    internal bool WasAccepted { get; private set; }
 
     /// <summary>
     /// Applies the accepted settings to the editor. Call only when <see cref="WasAccepted"/> is true.
@@ -150,8 +117,5 @@ internal sealed class EditorSettingsDialog : Dialog
         editor.CompletionProvider = _autoCompleteCheck.Value == CheckState.Checked
             ? new WordCompletionProvider ()
             : null;
-        editor.ViewportSettings = _scrollbarsCheck.Value == CheckState.Checked
-            ? editor.ViewportSettings | ViewportSettingsFlags.HasScrollBars
-            : editor.ViewportSettings & ~ViewportSettingsFlags.HasScrollBars;
     }
 }

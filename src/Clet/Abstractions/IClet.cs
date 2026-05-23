@@ -23,7 +23,7 @@ internal interface IClet
     /// Returns <see langword="true"/> if valid (or if the clet accepts any string).
     /// Clets with typed parsing (int, date, color, etc.) should override to reject unparseable values.
     /// </summary>
-    bool TryValidateInitial (string initial, CletRunOptions options) => true;
+    bool TryValidateInitial (string initial, CletRunOptions _) => true;
 
     Task<BoxedCletResult> RunBoxedAsync (
         IApplication app,

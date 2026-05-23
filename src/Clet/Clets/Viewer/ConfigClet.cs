@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using Microsoft.VisualBasic;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
 using Terminal.Gui.Drawing;
@@ -41,7 +42,7 @@ internal sealed class ConfigClet : IViewerClet
         string configPath = GetConfigPath ();
         EnsureConfigFile (configPath);
 
-        string configText = File.ReadAllText (configPath);
+        string configText = await File.ReadAllTextAsync (configPath, cancellationToken);
 
         // Check for pre-existing config errors to show on launch
         string? launchError = ValidateConfig (configPath);
@@ -114,8 +115,8 @@ internal sealed class ConfigClet : IViewerClet
 
         // --- StatusBar ---
 
-        Shortcut saveShortcut = new (Key.S.WithCtrl, "Save", () => Save ());
-        Shortcut quitShortcut = new (Application.GetDefaultKey (Command.Quit), "Quit", () => TryQuit ());
+        Shortcut saveShortcut = new (Key.S.WithCtrl, Terminal.Gui.Resources.Strings.cmdSave, Save);
+        Shortcut quitShortcut = new (Application.GetDefaultKey (Command.Quit), Terminal.Gui.Resources.Strings.cmdQuit, TryQuit);
 
         StatusBar statusBar = new ([quitShortcut, saveShortcut, statusMessage, cursorPosition, new Shortcut { Title = "Theme", CommandView = themeDropDown }])
         {
@@ -134,7 +135,7 @@ internal sealed class ConfigClet : IViewerClet
                     app,
                     "Configuration Error",
                     launchError,
-                    "OK");
+                    Terminal.Gui.Resources.Strings.btnOk);
 
                 statusMessage.Title = "Config has errors";
             }
@@ -264,7 +265,7 @@ internal sealed class ConfigClet : IViewerClet
                 app,
                 "Configuration Error",
                 ex.Message,
-                "OK");
+                Terminal.Gui.Resources.Strings.btnOk);
 
             editor.SetFocus ();
         }
@@ -277,23 +278,23 @@ internal sealed class ConfigClet : IViewerClet
                     app,
                     "Unsaved Changes",
                     "You have unsaved changes. Save before quitting?",
-                    "Save & Quit",
-                    "Discard",
-                    "Cancel");
+                    Terminal.Gui.Resources.Strings.btnCancel,
+                    Terminal.Gui.Resources.Strings.btnNo,
+                    "_Save & Quit");
 
                 switch (result)
                 {
                     case 0:
-                        Save ();
-                        window.RequestStop ();
-
                         break;
+
                     case 1:
                         window.RequestStop ();
 
                         break;
-                    default:
-                        // Cancel — do nothing
+                    case 2:
+                        Save ();
+                        window.RequestStop ();
+
                         break;
                 }
             }

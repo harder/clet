@@ -128,7 +128,7 @@ public class TerminalEscapeSanitizerTests
     public void Sanitize_C1SevenBitPairs_Stripped ()
     {
         // C1 7-bit pairs: ESC @ through ESC _
-        string payload = "a\x1b@b\x1b]c\x1b_d";
+        string payload = "a\u001b@b\u001b]c\u001b_d";
         string result = TerminalEscapeSanitizer.Sanitize (payload)!;
 
         AssertEscapeFree (result);
@@ -139,9 +139,9 @@ public class TerminalEscapeSanitizerTests
     public void Sanitize_MixedPayloads_AllStripped ()
     {
         // All payloads from the issue combined with normal text
-        string input = "# Title\n\x1b]52;c;SGVsbG8=" + "\x07" + "\nParagraph\x1b]0;evil\x07\n"
-                       + "\x1b]8;;https://evil/" + "\x07" + "link\x1b]8;;\x07\n"
-                       + "\x1b[2J\x1b[H" + "\u009b" + "0m" + "\u009d" + "0;bad\x07";
+        string input = "# Title\n\u001b]52;c;SGVsbG8=" + "\u0007" + "\nParagraph\u001b]0;evil\u0007\n"
+                       + "\u001b]8;;https://evil/" + "\u0007" + "link\u001b]8;;\u0007\n"
+                       + "\u001b[2J\u001b[H" + "\u009b" + "0m" + "\u009d" + "0;bad\u0007";
         string result = TerminalEscapeSanitizer.Sanitize (input)!;
 
         AssertEscapeFree (result);
@@ -156,7 +156,7 @@ public class TerminalEscapeSanitizerTests
     public void SanitizeRenderedOutput_PreservesSgrSequences ()
     {
         // SGR bold + red: ESC[1m ESC[31m
-        string input = "\x1b[1mBold\x1b[31mRed\x1b[0m";
+        string input = "\u001b[1mBold\u001b[31mRed\u001b[0m";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
         Assert.Equal (input, result);
@@ -166,7 +166,7 @@ public class TerminalEscapeSanitizerTests
     public void SanitizeRenderedOutput_PreservesCursorSequences ()
     {
         // Cursor movement: ESC[H, ESC[2J
-        string input = "\x1b[H\x1b[2J";
+        string input = "\u001b[H\u001b[2J";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
         Assert.Equal (input, result);
@@ -176,7 +176,7 @@ public class TerminalEscapeSanitizerTests
     public void SanitizeRenderedOutput_StripsOsc ()
     {
         // OSC sequence (ESC ]) should be stripped from rendered output
-        string input = "text\x1b]0;evil\x07more";
+        string input = "text\u001b]0;evil\u0007more";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
         Assert.False (result.Contains ('\x07'), "Result contains BEL");
@@ -196,7 +196,7 @@ public class TerminalEscapeSanitizerTests
     [Fact]
     public void SanitizeRenderedOutput_Strips8BitOsc ()
     {
-        string input = "text" + "\u009d" + "0;evil\x07more";
+        string input = "text" + "\u009d" + "0;evil\u0007more";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
         Assert.False (result.Contains ('\u009d'), "Result contains 8-bit OSC");
@@ -206,7 +206,7 @@ public class TerminalEscapeSanitizerTests
     [Fact]
     public void SanitizeRenderedOutput_StripsBel ()
     {
-        string input = "alert" + "\x07" + "here";
+        string input = "alert" + "\u0007" + "here";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
         Assert.False (result.Contains ('\x07'), "Result contains BEL");
@@ -229,11 +229,11 @@ public class TerminalEscapeSanitizerTests
     public void SanitizeRenderedOutput_MixedLegitAndDangerous ()
     {
         // Mix of legitimate SGR and dangerous OSC
-        string input = "\x1b[1mBold\x1b]0;evil\x07Normal\x1b[0m";
+        string input = "\u001b[1mBold\u001b]0;evil\u0007Normal\u001b[0m";
         string result = TerminalEscapeSanitizer.SanitizeRenderedOutput (input);
 
-        Assert.Contains ("\x1b[1m", result); // SGR preserved
-        Assert.Contains ("\x1b[0m", result); // SGR reset preserved
+        Assert.Contains ("\u001b[1m", result); // SGR preserved
+        Assert.Contains ("\u001b[0m", result); // SGR reset preserved
         Assert.False (result.Contains ('\x07'), "Result contains BEL");
         Assert.Contains ("Bold", result);
         Assert.Contains ("Normal", result);
