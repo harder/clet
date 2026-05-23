@@ -8,10 +8,10 @@ public class SchemaV1Tests
     [Fact]
     public void Ok_WithValue_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Ok (42);
+        var envelope = SchemaV1.Ok (42);
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal (1, root.GetProperty ("schemaVersion").GetInt32 ());
@@ -24,10 +24,10 @@ public class SchemaV1Tests
     [Fact]
     public void Ok_WithoutValue_HasNoValueField ()
     {
-        SchemaV1 envelope = SchemaV1.Ok ();
+        var envelope = SchemaV1.Ok ();
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal ("ok", root.GetProperty ("status").GetString ());
@@ -37,10 +37,10 @@ public class SchemaV1Tests
     [Fact]
     public void Cancelled_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Cancelled ();
+        var envelope = SchemaV1.Cancelled ();
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal (1, root.GetProperty ("schemaVersion").GetInt32 ());
@@ -53,10 +53,10 @@ public class SchemaV1Tests
     [Fact]
     public void Error_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Error ("INVALID_INPUT", "Bad data");
+        var envelope = SchemaV1.Error ("INVALID_INPUT", "Bad data");
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal (1, root.GetProperty ("schemaVersion").GetInt32 ());
@@ -69,10 +69,10 @@ public class SchemaV1Tests
     [Fact]
     public void NoResult_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.NoResult ();
+        var envelope = SchemaV1.NoResult ();
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal (1, root.GetProperty ("schemaVersion").GetInt32 ());
@@ -83,10 +83,10 @@ public class SchemaV1Tests
     [Fact]
     public void Ok_WithStringValue_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Ok ("hello");
+        var envelope = SchemaV1.Ok ("hello");
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal ("hello", root.GetProperty ("value").GetString ());
@@ -95,10 +95,10 @@ public class SchemaV1Tests
     [Fact]
     public void Ok_WithDecimalValue_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Ok (3.14m);
+        var envelope = SchemaV1.Ok (3.14m);
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.Equal (3.14m, root.GetProperty ("value").GetDecimal ());
@@ -107,10 +107,10 @@ public class SchemaV1Tests
     [Fact]
     public void Ok_WithBoolValue_ProducesCorrectJson ()
     {
-        SchemaV1 envelope = SchemaV1.Ok (true);
+        var envelope = SchemaV1.Ok (true);
         string json = envelope.ToJson ();
 
-        using JsonDocument doc = JsonDocument.Parse (json);
+        using var doc = JsonDocument.Parse (json);
         JsonElement root = doc.RootElement;
 
         Assert.True (root.GetProperty ("value").GetBoolean ());

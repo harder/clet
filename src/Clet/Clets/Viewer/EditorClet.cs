@@ -1,5 +1,5 @@
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Text;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
 using Terminal.Gui.Document;
@@ -12,8 +12,9 @@ using Terminal.Gui.Resources;
 using Terminal.Gui.Text.Indentation;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
-using TextMateSharp.Grammars;
 using Command = Terminal.Gui.Input.Command;
+
+// ReSharper disable AccessToModifiedClosure
 
 namespace Clet;
 
@@ -36,7 +37,7 @@ internal sealed class EditorClet : IViewerClet
     [
         new ("readonly", "r", typeof (bool),
             "Open the file in read-only mode.",
-            false, "false"),
+            false, "false")
     ];
 
     public async Task<CletRunResult> RunAsync (
@@ -55,7 +56,7 @@ internal sealed class EditorClet : IViewerClet
         List<string> files = [];
         string cwd = Directory.GetCurrentDirectory ();
         IReadOnlyList<string> args = options.Arguments ?? [];
-        string? pendingDeniedPath = null;   // set when access is denied; drives dialog
+        string? pendingDeniedPath = null; // set when access is denied; drives dialog
 
         FileAccessPolicy BuildPolicy (IReadOnlyList<string>? extraAllowed = null)
         {
@@ -68,7 +69,7 @@ internal sealed class EditorClet : IViewerClet
                     : [.. extraAllowed];
             }
 
-            return new (cwd, merged, options.AllowBinary, allowAllExtensions: true);
+            return new (cwd, merged, options.AllowBinary, true);
         }
 
         if (args.Count > 0)
@@ -110,7 +111,7 @@ internal sealed class EditorClet : IViewerClet
         // When access was denied, use the intended path for the window title.
         string? fileName = (filePath ?? pendingDeniedPath) is { } fp ? Path.GetFileName (fp) : null;
         string? lastDirectory = filePath is not null ? Path.GetDirectoryName (filePath) : null;
-        string? savedText = string.Empty;
+        string? savedText;
         bool accessDialogCancelled = false;
 
         bool readOnly = options.CletOptions?.TryGetValue ("readonly", out string? roVal) == true
@@ -123,7 +124,7 @@ internal sealed class EditorClet : IViewerClet
             Title = fileName ?? "Untitled",
             Width = Dim.Fill (),
             Height = Dim.Fill (),
-            BorderStyle = LineStyle.None,
+            BorderStyle = LineStyle.None
         };
 
         // --- Settings are loaded by ConfigurationManager via [ConfigurationProperty] ---
@@ -142,7 +143,7 @@ internal sealed class EditorClet : IViewerClet
             CompletionProvider = EditorSettings.AutoComplete ? new WordCompletionProvider () : null,
             ViewportSettings = EditorSettings.Scrollbars
                 ? ViewportSettingsFlags.HasScrollBars
-                : ViewportSettingsFlags.None,
+                : ViewportSettingsFlags.None
         };
 
         // Apply gutter options from settings
@@ -198,42 +199,10 @@ internal sealed class EditorClet : IViewerClet
         Markdown? markdownPreview = null;
         bool syncingScroll = false;
         bool isMarkdownFile = filePath is not null
-            && Path.GetExtension (filePath).Equals (".md", StringComparison.OrdinalIgnoreCase);
+                              && Path.GetExtension (filePath).Equals (".md", StringComparison.OrdinalIgnoreCase);
 
-        // View-menu toggle items — declared early so preview toggle can reference them.
+        // View-menu toggle item — declared early so preview state helpers can reference it.
         MenuItem previewMarkdownItem = new () { Title = "  _Preview Markdown", Enabled = isMarkdownFile };
-
-        void OnEditorViewportChanged (object? sender, DrawEventArgs e)
-        {
-            if (markdownPreview is null || syncingScroll)
-            {
-                return;
-            }
-
-            syncingScroll = true;
-
-            try
-            {
-                int editorContentHeight = editor.GetContentSize ().Height;
-                int editorViewportHeight = editor.Viewport.Height;
-                int maxEditorY = Math.Max (0, editorContentHeight - editorViewportHeight);
-                int editorY = editor.Viewport.Y;
-
-                int previewContentHeight = markdownPreview.GetContentSize ().Height;
-                int previewViewportHeight = markdownPreview.Viewport.Height;
-                int maxPreviewY = Math.Max (0, previewContentHeight - previewViewportHeight);
-
-                int newY = maxEditorY > 0
-                    ? (int)((long)editorY * maxPreviewY / maxEditorY)
-                    : 0;
-
-                markdownPreview.Viewport = markdownPreview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
-            }
-            finally
-            {
-                syncingScroll = false;
-            }
-        }
 
         void OnPreviewViewportChanged (object? sender, DrawEventArgs e)
         {
@@ -284,7 +253,7 @@ internal sealed class EditorClet : IViewerClet
                 return;
             }
 
-            markdownPreview = new Markdown ()
+            markdownPreview = new Markdown
             {
                 X = Pos.Right (editor),
                 Y = editor.Y,
@@ -292,7 +261,7 @@ internal sealed class EditorClet : IViewerClet
                 Height = editor.Height,
                 Text = editor.Document?.Text ?? string.Empty,
                 ViewportSettings = ViewportSettingsFlags.HasScrollBars,
-                SyntaxHighlighter = new TextMateSyntaxHighlighter (ThemeName.DarkPlus),
+                SyntaxHighlighter = new TextMateSyntaxHighlighter ()
             };
 
             editor.Width = Dim.Percent (50);
@@ -349,7 +318,7 @@ internal sealed class EditorClet : IViewerClet
 
         void ToggleMarkdownPreview ()
         {
-            if (previewMarkdownItem.Title?.StartsWith ("✓") == true)
+            if (previewMarkdownItem.Title.StartsWith ("✓"))
             {
                 HideMarkdownPreview ();
                 previewMarkdownItem.Title = "  _Preview Markdown";
@@ -376,42 +345,51 @@ internal sealed class EditorClet : IViewerClet
             }
         }
 
-        // --- StatusBar shortcuts (declared early for capture) ---
+        // --- Shared editor chrome ---
 
-        Shortcut cursorPositionShortcut = new ()
-        { Title = "Ln 1, Col 1", MouseHighlightStates = MouseState.None, Enabled = false };
-        Shortcut languageShortcut = new ()
-        { Title = "Plain Text", MouseHighlightStates = MouseState.None, Enabled = false };
-        SpinnerView loadStatusSpinner = new ()
+        EditorMenuBar menu = new (editor);
+        EditorStatusBar statusBar = new (editor);
+        string initialTheme = ThemeManager.Theme;
+
+        if (string.IsNullOrWhiteSpace (initialTheme))
         {
-            Style = new SpinnerStyle.Aesthetic (),
-            Width = 8,
-            AutoSpin = false,
-            Visible = false,
-        };
-        Shortcut loadSpinnerShortcut = new ()
-        {
-            CommandView = loadStatusSpinner,
-            Title = string.Empty,
-            MouseHighlightStates = MouseState.None,
-        };
+            initialTheme = ThemeManager.GetThemeNames ().FirstOrDefault () ?? "Theme";
+        }
+
+        statusBar.ThemeDropDown.Width = 12;
+        statusBar.ThemeDropDown.Height = 1;
+        statusBar.ThemeDropDown.Text = initialTheme;
+        SpinnerView loadStatusSpinner = statusBar.LoadStatusSpinner;
+        Shortcut loadStatusShortcut = statusBar.LoadSpinnerShortcut;
+        long? lastFileByteSize = null;
+        string lastStatusVerb = "Loaded";
         object streamingStatusLock = new ();
-        long lastStreamingStatusUnits = 0;
-        DateTime lastStreamingStatusUpdate = DateTime.MinValue;
+        long lastStreamingStatusUnits;
+        DateTime lastStreamingStatusUpdate;
         long streamingStatusOperationId = 0;
         CancellationTokenSource? progressiveLoadCts = null;
 
-        // Filename shortcut for MenuBar — full path, dialog scheme
-        Shortcut filenameShortcut = new ()
+        List<string> fileSelectorFiles = [];
+        ObservableCollection<string> fileSelectorDisplayNames = [];
+        bool switchingFileSelector = false;
+        int fileMenuItemsWidth = 32;
+        int filenameShortcutWidth = 12;
+        int lastFilenameMenuWidth = -1;
+        DropDownList filenameDropDown = new ()
         {
-            Title = filePath ?? "<untitled>",
-            MouseHighlightStates = MouseState.None,
-            SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog),
+            Source = new ListWrapper<string> (fileSelectorDisplayNames),
+            ReadOnly = true,
+            Text = fileName ?? "<untitled>",
+            CanFocus = false,
+            Width = filenameShortcutWidth
         };
 
         // --- Local state helpers ---
 
-        bool UnsavedChanges () => editor.Document?.UndoStack.IsOriginalFile == false;
+        bool UnsavedChanges ()
+        {
+            return editor.Document?.UndoStack.IsOriginalFile == false;
+        }
 
         void UpdateModifiedIndicator ()
         {
@@ -419,56 +397,191 @@ internal sealed class EditorClet : IViewerClet
             window.Title = dirty ? $"{fileName ?? "Untitled"}*" : fileName ?? "Untitled";
         }
 
-        void UpdateLanguageShortcut ()
+        static string GetFileDisplayName (string? path)
         {
-            languageShortcut.Title = editor.HighlightingDefinition?.Name ?? "Plain Text";
+            if (path is null)
+            {
+                return "<untitled>";
+            }
+
+            string fullPath = Path.GetFullPath (path);
+
+            return string.IsNullOrEmpty (fullPath) ? path : fullPath;
+        }
+
+        int GetFilenameTextColumns ()
+        {
+            return Math.Max (1, filenameShortcutWidth - 3);
+        }
+
+        string GetFittedFileDisplayName (string? path)
+        {
+            return EditorFileDisplay.FitPath (GetFileDisplayName (path), GetFilenameTextColumns ());
+        }
+
+        void UpdateFileSelectorText ()
+        {
+            switchingFileSelector = true;
+            filenameDropDown.Text = GetFittedFileDisplayName (filePath);
+            switchingFileSelector = false;
+        }
+
+        void EnsureFileInSelector (string fullPath)
+        {
+            if (fileSelectorFiles.Contains (fullPath, StringComparer.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            fileSelectorFiles.Add (fullPath);
+            fileSelectorDisplayNames.Add (GetFittedFileDisplayName (fullPath));
+        }
+
+        void RefreshFileSelectorDisplayNames ()
+        {
+            switchingFileSelector = true;
+            fileSelectorDisplayNames.Clear ();
+
+            foreach (string displayName in EditorFileDisplay.FitPaths (fileSelectorFiles.Select (GetFileDisplayName),
+                         GetFilenameTextColumns ()))
+            {
+                fileSelectorDisplayNames.Add (displayName);
+            }
+
+            if (fileSelectorFiles.Count == 0)
+            {
+                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (null));
+            }
+
+            filenameDropDown.Text = GetFittedFileDisplayName (filePath);
+            switchingFileSelector = false;
+        }
+
+        void RebuildFileSelectorItems ()
+        {
+            fileSelectorFiles.Clear ();
+            fileSelectorDisplayNames.Clear ();
+
+            foreach (string file in files)
+            {
+                string fullPath = Path.GetFullPath (file);
+
+                if (!fileSelectorFiles.Contains (fullPath, StringComparer.OrdinalIgnoreCase))
+                {
+                    fileSelectorFiles.Add (fullPath);
+                }
+            }
+
+            if (filePath is not null)
+            {
+                EnsureFileInSelector (filePath);
+            }
+
+            if (fileSelectorDisplayNames.Count == 0)
+            {
+                fileSelectorDisplayNames.Add (GetFittedFileDisplayName (null));
+            }
+
+            RefreshFileSelectorDisplayNames ();
+            UpdateFileSelectorText ();
+        }
+
+        void UpdateFilenameShortcutLayout ()
+        {
+            const int shortcutChromeColumns = 3;
+            const int gapBeforeFilenameShortcut = 1;
+            const int minimumShortcutWidth = 12;
+            int menuWidth = menu.Frame.Width;
+
+            if (menuWidth <= 0)
+            {
+                return;
+            }
+
+            int longestDisplayName = Math.Max (
+                GetFileDisplayName (filePath).Length,
+                fileSelectorFiles.Count == 0
+                    ? "<untitled>".Length
+                    : fileSelectorFiles.Max (f => GetFileDisplayName (f).Length));
+            int desiredWidth = longestDisplayName + shortcutChromeColumns;
+            int availableWidth = menuWidth - fileMenuItemsWidth - gapBeforeFilenameShortcut;
+            int maximumNaturalWidth = Math.Max (minimumShortcutWidth, menuWidth / 2);
+            int width = Math.Max (1, Math.Min (desiredWidth, Math.Min (availableWidth, maximumNaturalWidth)));
+
+            if (width == filenameShortcutWidth)
+            {
+                return;
+            }
+
+            filenameShortcutWidth = width;
+            filenameDropDown.Width = filenameShortcutWidth;
+            RefreshFileSelectorDisplayNames ();
+            filenameDropDown.SetNeedsDraw ();
         }
 
         void UpdateSyntaxLanguage (string path)
         {
-            editor.HighlightingDefinition = HighlightingManager.Instance.GetDefinitionByExtension (Path.GetExtension (path));
-            UpdateLanguageShortcut ();
+            editor.HighlightingDefinition =
+                HighlightingManager.Instance.GetDefinitionByExtension (Path.GetExtension (path));
+            statusBar.UpdateLanguageShortcut ();
         }
 
-        void UpdateLocShortcut ()
+        void SetIdleLoadStatus (string status)
+        {
+            loadStatusSpinner.Visible = false;
+            loadStatusSpinner.AutoSpin = false;
+            loadStatusShortcut.Title = status;
+            loadStatusShortcut.HelpText = status;
+            loadStatusSpinner.SetNeedsDraw ();
+            loadStatusShortcut.SetNeedsDraw ();
+        }
+
+        void UpdateModifiedStatus ()
+        {
+            if (loadStatusSpinner.AutoSpin)
+            {
+                return;
+            }
+
+            string verb = UnsavedChanges () ? "Modified" : lastStatusVerb;
+            SetIdleLoadStatus (FormatCompletedProgress (verb, lastFileByteSize));
+        }
+
+        void RefreshDocumentByteSize ()
         {
             TextDocument? document = editor.Document;
 
             if (document is null)
             {
-                cursorPositionShortcut.Title = "Ln 1, Col 1";
+                lastFileByteSize = null;
 
                 return;
             }
 
-            DocumentLine line = document.GetLineByOffset (editor.CaretOffset);
-            string loc = $"Ln {line.LineNumber}, Col {editor.CaretOffset - line.Offset + 1}";
-
-            if (editor.HasMultipleCarets)
-            {
-                loc += $" ({editor.AdditionalCaretOffsets.Count + 1} carets)";
-            }
-
-            cursorPositionShortcut.Title = loc;
+            Encoding encoding = document.Encoding;
+            lastFileByteSize = encoding.GetByteCount (document.Text);
         }
 
         // --- File operations ---
 
-        void ApplyLoadedFileState (string fullPath)
+        void ApplyLoadedFileState (string fullPath, long? fileSize)
         {
             filePath = fullPath;
             fileName = Path.GetFileName (fullPath);
             lastDirectory = Path.GetDirectoryName (fullPath);
+            lastFileByteSize = fileSize;
+            lastStatusVerb = "Loaded";
             savedText = editor.Document?.Text ?? string.Empty;
             editor.ClearSelection ();
             editor.CaretOffset = 0;
             UpdateSyntaxLanguage (fullPath);
             InstallFolding ();
             UpdateModifiedIndicator ();
-            filenameShortcut.Title = fullPath;
+            EnsureFileInSelector (fullPath);
+            UpdateFileSelectorText ();
+            UpdateModifiedStatus ();
             isMarkdownFile = Path.GetExtension (fullPath).Equals (".md", StringComparison.OrdinalIgnoreCase);
             UpdatePreviewEnabled ();
-            UpdateLanguageShortcut ();
             editor.SetFocus ();
         }
 
@@ -477,6 +590,8 @@ internal sealed class EditorClet : IViewerClet
             filePath = fullPath;
             fileName = Path.GetFileName (fullPath);
             lastDirectory = Path.GetDirectoryName (fullPath);
+            lastFileByteSize = 0;
+            lastStatusVerb = "Loaded";
             savedText = string.Empty;
             editor.ClearSelection ();
             editor.Document = new TextDocument ();
@@ -485,35 +600,31 @@ internal sealed class EditorClet : IViewerClet
             UpdateSyntaxLanguage (fullPath);
             InstallFolding ();
             UpdateModifiedIndicator ();
-            filenameShortcut.Title = fullPath;
+            EnsureFileInSelector (fullPath);
+            UpdateFileSelectorText ();
+            UpdateModifiedStatus ();
             isMarkdownFile = Path.GetExtension (fullPath).Equals (".md", StringComparison.OrdinalIgnoreCase);
             UpdatePreviewEnabled ();
-            UpdateLanguageShortcut ();
             editor.SetFocus ();
         }
 
-        bool OpenFileSynchronously (string fullPath)
+        void OpenFileSynchronously (string fullPath)
         {
             try
             {
                 using FileStream stream = File.OpenRead (fullPath);
+                long fileSize = stream.Length;
                 editor.ClearSelection ();
                 editor.LoadAsync (stream, cancellationToken: cancellationToken).GetAwaiter ().GetResult ();
-                ApplyLoadedFileState (fullPath);
-
-                return true;
+                ApplyLoadedFileState (fullPath, fileSize);
             }
             catch (OperationCanceledException)
             {
                 CompleteAnyStreamingStatus ("Load canceled");
-
-                return false;
             }
             catch (Exception ex) when (IsFileOperationException (ex))
             {
                 CompleteAnyStreamingStatus ("Load failed");
-
-                return false;
             }
         }
 
@@ -580,7 +691,7 @@ internal sealed class EditorClet : IViewerClet
                         return;
                     }
 
-                    ApplyLoadedFileState (fullPath);
+                    ApplyLoadedFileState (fullPath, fileSize);
                     CompleteStreamingStatus (
                         startedStatusOperationId,
                         FormatCompletedProgress ("Loaded", fileSize));
@@ -673,10 +784,10 @@ internal sealed class EditorClet : IViewerClet
 
                 loadStatusSpinner.Visible = showSpinner;
                 loadStatusSpinner.AutoSpin = showSpinner;
-                loadSpinnerShortcut.Title = status;
-                loadSpinnerShortcut.HelpText = status;
+                loadStatusShortcut.Title = status;
+                loadStatusShortcut.HelpText = status;
                 loadStatusSpinner.SetNeedsDraw ();
-                loadSpinnerShortcut.SetNeedsDraw ();
+                loadStatusShortcut.SetNeedsDraw ();
             }
 
             app.Invoke (Update);
@@ -753,9 +864,11 @@ internal sealed class EditorClet : IViewerClet
             return $"{verb} 0 B of {FormatByteCount (totalBytes)}";
         }
 
-        static string FormatCompletedProgress (string verb, long totalBytes)
+        static string FormatCompletedProgress (string verb, long? totalBytes)
         {
-            return $"{verb} {FormatByteCount (totalBytes)}";
+            return totalBytes is { } bytes
+                ? $"{verb} {FormatByteCount (bytes)}"
+                : verb;
         }
 
         static string FormatByteCount (long bytes)
@@ -791,12 +904,15 @@ internal sealed class EditorClet : IViewerClet
             {
                 File.WriteAllText (filePath, editor.Document?.Text ?? string.Empty);
                 savedText = editor.Document?.Text ?? string.Empty;
+                lastFileByteSize = Encoding.UTF8.GetByteCount (savedText);
+                lastStatusVerb = "Saved";
                 editor.Document?.UndoStack.MarkAsOriginalFile ();
                 UpdateModifiedIndicator ();
+                UpdateModifiedStatus ();
             }
             catch (Exception ex)
             {
-                MessageBox.ErrorQuery (app, "Error", ex.Message, "Ok");
+                MessageBox.ErrorQuery (app, "Error", ex.Message, Terminal.Gui.Resources.Strings.btnOk);
 
                 return false;
             }
@@ -805,6 +921,13 @@ internal sealed class EditorClet : IViewerClet
         }
 
         bool SaveAs ()
+        {
+            string? path = ShowSaveAsDialogPath ();
+
+            return path is not null && SaveFileAs (path);
+        }
+
+        string? ShowSaveAsDialogPath ()
         {
             SaveDialog sd = new ();
 
@@ -821,17 +944,23 @@ internal sealed class EditorClet : IViewerClet
             app.Run (sd);
             bool canceled = sd.Canceled;
             string path = sd.Path;
-            string sdFileName = sd.FileName ?? string.Empty;
             sd.Dispose ();
 
             if (canceled || string.IsNullOrWhiteSpace (path))
             {
-                return false;
+                return null;
             }
 
+            return path;
+        }
+
+        bool SaveFileAs (string path)
+        {
             filePath = Path.GetFullPath (path);
-            fileName = sdFileName;
+            fileName = Path.GetFileName (filePath);
             lastDirectory = Path.GetDirectoryName (filePath);
+            EnsureFileInSelector (filePath);
+            UpdateFileSelectorText ();
 
             return SaveFile ();
         }
@@ -847,48 +976,22 @@ internal sealed class EditorClet : IViewerClet
                 app,
                 "Unsaved Changes",
                 $"Save changes to {fileName ?? "Untitled"}?",
-                "Cancel", "No", "Yes");
+                Strings.btnCancel, Strings.btnNo, Strings.btnYes);
 
-            if (result is null or 0)
+            return result switch
             {
-                return false;
-            }
-
-            if (result == 2)
-            {
-                return SaveFile ();
-            }
-
-            return true;
+                null or 0 => false,
+                1 => true,
+                2 => SaveFile (),
+                _ => true
+            };
         }
 
-        void NewFile ()
+        string? ShowOpenDialog ()
         {
             if (!PromptSaveIfDirty ())
             {
-                return;
-            }
-
-            filePath = null;
-            fileName = null;
-            savedText = string.Empty;
-            editor.ClearSelection ();
-            editor.Document = new TextDocument ();
-            editor.CaretOffset = 0;
-            editor.HighlightingDefinition = null;
-            InstallFolding ();
-            UpdateModifiedIndicator ();
-            UpdateLanguageShortcut ();
-            filenameShortcut.Title = "<untitled>";
-            isMarkdownFile = false;
-            UpdatePreviewEnabled ();
-        }
-
-        void OpenFile ()
-        {
-            if (!PromptSaveIfDirty ())
-            {
-                return;
+                return null;
             }
 
             OpenDialog od = new ()
@@ -897,7 +1000,7 @@ internal sealed class EditorClet : IViewerClet
                 AllowsMultipleSelection = false,
                 AllowedTypes = [new AllowedTypeAny ()],
                 MustExist = true,
-                OpenMode = OpenMode.File,
+                OpenMode = OpenMode.File
             };
 
             if (lastDirectory is not null)
@@ -907,14 +1010,27 @@ internal sealed class EditorClet : IViewerClet
 
             app.Run (od);
 
-            if (!od.Canceled && od.FilePaths.Count > 0)
+            string? selectedPath = null;
+
+            if (od is { Canceled: false, FilePaths.Count: > 0 })
             {
-                string selectedPath = od.FilePaths[0];
+                selectedPath = od.FilePaths[0];
                 lastDirectory = Path.GetDirectoryName (Path.GetFullPath (selectedPath));
-                LoadFile (selectedPath);
             }
 
             od.Dispose ();
+
+            return selectedPath;
+        }
+
+        void OpenFile ()
+        {
+            string? selectedPath = ShowOpenDialog ();
+
+            if (selectedPath is not null)
+            {
+                LoadFile (selectedPath);
+            }
         }
 
         void QuitEditor ()
@@ -927,53 +1043,6 @@ internal sealed class EditorClet : IViewerClet
             window.RequestStop ();
         }
 
-        // --- Clipboard helpers ---
-
-        void Paste ()
-        {
-            if (editor.ReadOnly)
-            {
-                return;
-            }
-
-            IClipboard? clipboard = app.Clipboard;
-
-            if (clipboard is null || !clipboard.TryGetClipboardData (out string contents))
-            {
-                return;
-            }
-
-            if (editor.HasSelection)
-            {
-                editor.ReplaceSelection (contents);
-            }
-            else
-            {
-                editor.Document?.Insert (editor.CaretOffset, contents);
-            }
-        }
-
-        void Copy ()
-        {
-            if (!editor.HasSelection)
-            {
-                return;
-            }
-
-            app.Clipboard?.TrySetClipboardData (editor.SelectedText);
-        }
-
-        void Cut ()
-        {
-            if (editor.ReadOnly || !editor.HasSelection)
-            {
-                return;
-            }
-
-            Copy ();
-            editor.ReplaceSelection (string.Empty);
-        }
-
         // --- Find/Replace ---
 
         void ShowFindReplace (bool showReplace = false)
@@ -982,20 +1051,6 @@ internal sealed class EditorClet : IViewerClet
             app.Run (dlg);
             dlg.Dispose ();
         }
-
-        // --- Edit menu items (reusable for context menu) ---
-
-        MenuItem[] CreateEditMenuItems () =>
-        [
-            new () { Title = "_Undo", Key = Key.Z.WithCtrl, Action = () => editor.Document?.UndoStack.Undo () },
-            new () { Title = "_Redo", Key = Key.Y.WithCtrl, Action = () => editor.Document?.UndoStack.Redo () },
-            null!,
-            new () { Title = "Cu_t", Key = Key.X.WithCtrl, Action = Cut },
-            new () { Title = "_Copy", Key = Key.C.WithCtrl, Action = Copy },
-            new () { Title = "_Paste", Key = Key.V.WithCtrl, Action = Paste },
-            null!,
-            new () { Title = "Select _All", Key = Key.A.WithCtrl, Action = () => editor.SelectAll () },
-        ];
 
         // --- About dialog ---
 
@@ -1008,7 +1063,7 @@ internal sealed class EditorClet : IViewerClet
             {
                 Title = "About clet edit",
                 Width = Dim.Percent (50),
-                Height = 12,
+                Height = 12
             };
 
             Label info = new ()
@@ -1017,12 +1072,12 @@ internal sealed class EditorClet : IViewerClet
                 Y = 0,
                 Width = Dim.Fill (1),
                 Text = $"""
-                         clet {VersionInfo.GetCletVersion ()}
-                         Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()}
-                         Terminal.Gui.Editor {editorVersion}
+                        clet {VersionInfo.GetCletVersion ()}
+                        Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()}
+                        Terminal.Gui.Editor {editorVersion}
 
-                         https://github.com/gui-cs/clet
-                         """,
+                        https://github.com/gui-cs/clet
+                        """
             };
 
             Button ok = new () { Text = "OK", X = Pos.Center (), Y = Pos.Bottom (info) + 1, IsDefault = true };
@@ -1042,84 +1097,19 @@ internal sealed class EditorClet : IViewerClet
             if (dlg.WasAccepted)
             {
                 dlg.ApplyTo (editor);
-                SyncViewMenuStateFromEditor ();
+                menu.SyncCheckboxes ();
                 SaveViewSettings ();
             }
 
             dlg.Dispose ();
         }
 
-        // --- View menu toggle state ---
-
-        bool optLineNumbers = EditorSettings.LineNumbers;
-        bool optFoldIndicators = EditorSettings.FoldIndicators;
-        bool optWordWrap = EditorSettings.WordWrap;
-        bool optShowTabs = EditorSettings.ShowTabs;
-        bool optScrollbars = EditorSettings.Scrollbars;
-
-        void UpdateGutterOptions ()
-        {
-            GutterOptions g = GutterOptions.None;
-
-            if (optLineNumbers)
-            {
-                g |= GutterOptions.LineNumbers;
-            }
-
-            if (optFoldIndicators)
-            {
-                g |= GutterOptions.Folding;
-            }
-
-            editor.GutterOptions = g;
-        }
-
-        string ToggleTitle (bool on, string label) => on ? $"✓ {label}" : $"  {label}";
-
-        // --- MenuBar ---
-
-        MenuBar menu = new () { AlignmentModes = AlignmentModes.IgnoreFirstOrLast };
-
-        filenameShortcut.Accepting += (_, _) => OpenFile ();
-
-        menu.Add (new MenuBarItem ("_File",
-        [
-            new MenuItem { Title = "_New", Key = Key.N.WithCtrl, Action = NewFile },
-            new MenuItem { Title = "_Open", Key = Key.O.WithCtrl, Action = OpenFile },
-            new MenuItem { Title = "_Save", Key = Key.S.WithCtrl, Action = () => SaveFile () },
-            new MenuItem { Title = "Save _As", Action = () => SaveAs () },
-            null!,
-            new MenuItem { Title = "_Quit", Key = Key.Q.WithCtrl, Action = QuitEditor },
-        ]));
-
-        menu.Add (new MenuBarItem ("_Edit",
-        [
-            new MenuItem { Title = "_Find...", Key = Key.F.WithCtrl, Action = () => ShowFindReplace () },
-            new MenuItem { Title = "_Replace...", Key = Key.H.WithCtrl, Action = () => ShowFindReplace (true) },
-            null!,
-            .. CreateEditMenuItems (),
-        ]));
-
-        // --- View menu ---
-
-        MenuItem viewLineNumbersItem = new () { Title = ToggleTitle (optLineNumbers, "_Line Numbers") };
-        MenuItem viewFoldIndicatorsItem = new () { Title = ToggleTitle (optFoldIndicators, "_Fold Indicators") };
-        MenuItem viewWordWrapItem = new () { Title = ToggleTitle (optWordWrap, "_Word Wrap") };
-        MenuItem viewShowTabsItem = new () { Title = ToggleTitle (optShowTabs, "Show _Tabs") };
-        MenuItem viewScrollbarsItem = new () { Title = ToggleTitle (optScrollbars, "_Scrollbars") };
-
-        void SyncViewMenuStateFromEditor ()
-        {
-            optScrollbars = editor.ViewportSettings.HasFlag (ViewportSettingsFlags.HasScrollBars);
-            viewScrollbarsItem.Title = ToggleTitle (optScrollbars, "_Scrollbars");
-        }
-
         void SaveViewSettings ()
         {
-            EditorSettings.LineNumbers = optLineNumbers;
-            EditorSettings.FoldIndicators = optFoldIndicators;
-            EditorSettings.WordWrap = optWordWrap;
-            EditorSettings.ShowTabs = optShowTabs;
+            EditorSettings.LineNumbers = editor.GutterOptions.HasFlag (GutterOptions.LineNumbers);
+            EditorSettings.FoldIndicators = editor.GutterOptions.HasFlag (GutterOptions.Folding);
+            EditorSettings.WordWrap = editor.WordWrap;
+            EditorSettings.ShowTabs = editor.ShowTabs;
             EditorSettings.Scrollbars = editor.ViewportSettings.HasFlag (ViewportSettingsFlags.HasScrollBars);
             EditorSettings.IndentSize = editor.IndentationSize;
             EditorSettings.ConvertTabsToSpaces = editor.ConvertTabsToSpaces;
@@ -1127,49 +1117,6 @@ internal sealed class EditorClet : IViewerClet
             EditorSettings.AutoComplete = editor.CompletionProvider is not null;
             EditorSettings.Save ();
         }
-
-        viewLineNumbersItem.Action = () =>
-        {
-            optLineNumbers = !optLineNumbers;
-            viewLineNumbersItem.Title = ToggleTitle (optLineNumbers, "_Line Numbers");
-            UpdateGutterOptions ();
-            SaveViewSettings ();
-        };
-
-        viewFoldIndicatorsItem.Action = () =>
-        {
-            optFoldIndicators = !optFoldIndicators;
-            viewFoldIndicatorsItem.Title = ToggleTitle (optFoldIndicators, "_Fold Indicators");
-            UpdateGutterOptions ();
-            SaveViewSettings ();
-        };
-
-        viewWordWrapItem.Action = () =>
-        {
-            optWordWrap = !optWordWrap;
-            viewWordWrapItem.Title = ToggleTitle (optWordWrap, "_Word Wrap");
-            editor.WordWrap = optWordWrap;
-            SaveViewSettings ();
-        };
-
-        viewShowTabsItem.Action = () =>
-        {
-            optShowTabs = !optShowTabs;
-            viewShowTabsItem.Title = ToggleTitle (optShowTabs, "Show _Tabs");
-            editor.ShowTabs = optShowTabs;
-            SaveViewSettings ();
-        };
-
-        viewScrollbarsItem.Action = () =>
-        {
-            optScrollbars = !optScrollbars;
-            viewScrollbarsItem.Title = ToggleTitle (optScrollbars, "_Scrollbars");
-            editor.ViewportSettings = optScrollbars
-                ? editor.ViewportSettings | ViewportSettingsFlags.HasScrollBars
-                : editor.ViewportSettings & ~ViewportSettingsFlags.HasScrollBars;
-            editor.SetNeedsDraw ();
-            SaveViewSettings ();
-        };
 
         previewMarkdownItem.Action = () =>
         {
@@ -1179,47 +1126,80 @@ internal sealed class EditorClet : IViewerClet
             }
         };
 
-        menu.Add (new MenuBarItem ("_View",
-        [
-            viewLineNumbersItem,
-            viewFoldIndicatorsItem,
-            viewWordWrapItem,
-            viewShowTabsItem,
-            viewScrollbarsItem,
-            null!,
-            previewMarkdownItem,
-        ]));
-
-        // --- Options menu ---
+        menu.ShowOpenDialog = ShowOpenDialog;
+        menu.ShowSaveDialog = ShowSaveAsDialogPath;
+        menu.NewRequested += (_, _) => NewFile ();
+        menu.OpenRequested += (_, e) => LoadFile (e.FilePath);
+        menu.SaveRequested += (_, _) => SaveFile ();
+        menu.SaveAsRequested += (_, e) => SaveFileAs (e.FilePath);
+        menu.QuitRequested += (_, _) => QuitEditor ();
+        menu.ViewSettingsChanged += (_, _) => SaveViewSettings ();
+        menu.ViewMenu.PopoverMenu!.Root!.Add (new Line (), previewMarkdownItem);
 
         menu.Add (new MenuBarItem ("_Options",
         [
-            new MenuItem { Title = "_Settings...", Action = ShowSettings },
+            new MenuItem { Title = "_Settings...", Action = ShowSettings }
         ]));
 
         menu.Add (new MenuBarItem ("_Help",
         [
-            new MenuItem { Title = "_About", Action = ShowAbout },
-        ]),
-        filenameShortcut);
-
-        // --- Right-click context menu ---
-
-        PopoverMenu contextMenu = new (CreateEditMenuItems ())
+            new MenuItem { Title = "_About", Action = ShowAbout }
+        ]));
+        fileMenuItemsWidth = Math.Max (fileMenuItemsWidth, menu.GetWidthRequiredForSubViews ());
+        app.Iteration += (_, _) =>
         {
-            Target = new WeakReference<View> (editor),
-        };
-
-        editor.MouseEvent += (_, e) =>
-        {
-            if (!e.Flags.HasFlag (MouseFlags.RightButtonClicked))
+            int menuWidth = menu.Frame.Width;
+            if (menuWidth == lastFilenameMenuWidth)
             {
                 return;
             }
 
-            contextMenu.MakeVisible (e.ScreenPosition);
-            e.Handled = true;
+            lastFilenameMenuWidth = menuWidth;
+            UpdateFilenameShortcutLayout ();
         };
+
+        filenameDropDown.ValueChanged += (_, _) =>
+        {
+            if (switchingFileSelector)
+            {
+                return;
+            }
+
+            int index = fileSelectorDisplayNames.IndexOf (filenameDropDown.Text);
+
+            if (index < 0 || index >= fileSelectorFiles.Count)
+            {
+                UpdateFileSelectorText ();
+
+                return;
+            }
+
+            string selectedPath = fileSelectorFiles[index];
+
+            if (filePath is not null && string.Equals (filePath, selectedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!PromptSaveIfDirty ())
+            {
+                UpdateFileSelectorText ();
+
+                return;
+            }
+
+            LoadFile (selectedPath);
+        };
+        RebuildFileSelectorItems ();
+        UpdateFilenameShortcutLayout ();
+        Shortcut filenameShortcut = new ()
+        {
+            CommandView = filenameDropDown,
+            MouseHighlightStates = MouseState.None,
+            SchemeName = SchemeManager.SchemesToSchemeName (Schemes.Dialog)
+        };
+        menu.Add (filenameShortcut);
+        UpdateFilenameShortcutLayout ();
 
         // --- Wire find/replace events ---
 
@@ -1231,106 +1211,27 @@ internal sealed class EditorClet : IViewerClet
         editor.CaretChanged += (_, _) =>
         {
             UpdateModifiedIndicator ();
-            UpdateLocShortcut ();
+            UpdateModifiedStatus ();
         };
-
-        // --- Theme selector ---
-
-        ImmutableList<string> themeNames = ThemeManager.GetThemeNames ();
-        ObservableCollection<string> themeCollection = new (themeNames);
-
-        DropDownList themeDropDown = new ()
+        editor.ContentChanged += (_, _) =>
         {
-            Source = new ListWrapper<string> (themeCollection),
-            ReadOnly = true,
-            Text = ThemeManager.Theme,
-            Width = Dim.Auto (DimAutoStyle.Text, minimumContentDim: 10),
-        };
-
-        themeDropDown.ValueChanged += (_, _) =>
-        {
-            string selected = themeDropDown.Text;
-
-            if (!string.IsNullOrEmpty (selected) && selected != ThemeManager.Theme)
-            {
-                ThemeManager.Theme = selected;
-            }
+            RefreshDocumentByteSize ();
+            UpdateModifiedStatus ();
         };
 
         // --- StatusBar ---
 
-        List<Shortcut> statusItems =
-        [
-            new Shortcut (Application.GetDefaultKey (Command.Quit), "Quit", QuitEditor),
-            new Shortcut (Key.F2, "Open", OpenFile),
-            new Shortcut (Key.F3, "Save", () => SaveFile ()),
-            cursorPositionShortcut,
-            languageShortcut,
-            loadSpinnerShortcut,
-            new Shortcut { Title = "Theme", CommandView = themeDropDown },
-        ];
-
-        // File selector: dropdown when multiple files, plain label otherwise
-        DropDownList? fileSelector = null;
-
-        if (files.Count > 1)
-        {
-            List<string> basenames = [.. files.Select (f => Path.GetFileName (f) ?? f)];
-            bool hasCollisions = basenames.Count != basenames.Distinct (StringComparer.OrdinalIgnoreCase).Count ();
-            string currentDir = Directory.GetCurrentDirectory ();
-            List<string> displayNames = hasCollisions
-                ? [.. files.Select (f => Path.GetRelativePath (currentDir, f))]
-                : basenames;
-
-            ObservableCollection<string> displayNamesOc = new (displayNames);
-
-            fileSelector = new DropDownList ()
-            {
-                Source = new ListWrapper<string> (displayNamesOc),
-                ReadOnly = true,
-                Text = displayNames[0],
-                Width = Dim.Auto (DimAutoStyle.Text, minimumContentDim: 20),
-            };
-
-            bool switchingFile = false;
-
-            fileSelector.ValueChanged += (_, _) =>
-            {
-                if (switchingFile)
-                {
-                    return;
-                }
-
-                int index = displayNames.IndexOf (fileSelector.Text);
-
-                if (index < 0 || index >= files.Count)
-                {
-                    return;
-                }
-
-                if (!PromptSaveIfDirty ())
-                {
-                    switchingFile = true;
-                    int currentIndex = filePath is not null ? files.IndexOf (filePath) : -1;
-
-                    if (currentIndex >= 0)
-                    {
-                        fileSelector.Text = displayNames[currentIndex];
-                    }
-
-                    switchingFile = false;
-
-                    return;
-                }
-
-                LoadFile (files[index]);
-            };
-
-            statusItems.Add (new Shortcut () { CommandView = fileSelector, HelpText = "File" });
-        }
-
-        StatusBar statusBar = new (statusItems)
-        { AlignmentModes = AlignmentModes.StartToEnd | AlignmentModes.IgnoreFirstOrLast };
+        statusBar.AlignmentModes = AlignmentModes.StartToEnd | AlignmentModes.IgnoreFirstOrLast;
+        statusBar.RemoveAll ();
+        statusBar.Add (
+            statusBar.LanguageShortcut,
+            statusBar.ThemeDropDown,
+            loadStatusShortcut,
+            statusBar.OverwriteShortcut,
+            new Shortcut (Application.GetDefaultKey (Command.Quit), Terminal.Gui.Resources.Strings.cmdQuit, QuitEditor),
+            new Shortcut (Key.F2, Terminal.Gui.Resources.Strings.cmdOpen, OpenFile),
+            new Shortcut (Key.F3, Terminal.Gui.Resources.Strings.cmdSave, () => SaveFile ()),
+            statusBar.LocShortcut);
 
         // --- Assemble window ---
 
@@ -1353,11 +1254,16 @@ internal sealed class EditorClet : IViewerClet
                     $"'{Path.GetFileName (pendingDeniedPath)}' is outside the allowed\n"
                     + $"directories.\n\n{pendingDeniedPath}\n\n"
                     + "How would you like to proceed?",
-                    "Allow once", "Add to config", "Cancel");
+                    Strings.btnCancel, "_Allow once", "_Add to config");
 
                 switch (choice)
                 {
-                    case 0: // Allow once — add dir to the session policy only
+                    case 0 or null:
+                        accessDialogCancelled = true;
+                        window.RequestStop ();
+                        break;
+
+                    case 1: // Allow once — add dir to the session policy only
                         {
                             files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy ([dir]), out _);
 
@@ -1367,12 +1273,13 @@ internal sealed class EditorClet : IViewerClet
                                 fileName = Path.GetFileName (filePath);
                                 lastDirectory = Path.GetDirectoryName (filePath);
                                 window.Title = fileName;
+                                RebuildFileSelectorItems ();
                             }
 
                             break;
                         }
 
-                    case 1: // Add to config — persist the directory and allow now
+                    case 2: // Add to config — persist the directory and allow now
                         {
                             FileAccessSettings.AddToConfig (dir);
                             files = MarkdownContentResolver.ExpandFiles (args, BuildPolicy (), out _);
@@ -1383,15 +1290,13 @@ internal sealed class EditorClet : IViewerClet
                                 fileName = Path.GetFileName (filePath);
                                 lastDirectory = Path.GetDirectoryName (filePath);
                                 window.Title = fileName;
+                                RebuildFileSelectorItems ();
                             }
 
                             break;
                         }
 
-                    default: // Cancel
-                        accessDialogCancelled = true;
-                        window.RequestStop ();
-
+                    default:
                         return;
                 }
             }
@@ -1404,12 +1309,15 @@ internal sealed class EditorClet : IViewerClet
             else if (content is not null)
             {
                 editor.Document = new TextDocument (content);
+                lastFileByteSize = Encoding.UTF8.GetByteCount (content);
+                lastStatusVerb = "Loaded";
                 savedText = string.Empty;
                 InstallFolding ();
                 UpdateModifiedIndicator ();
+                UpdateModifiedStatus ();
             }
 
-            UpdateLanguageShortcut ();
+            statusBar.UpdateLanguageShortcut ();
             editor.SetFocus ();
         };
 
@@ -1430,6 +1338,63 @@ internal sealed class EditorClet : IViewerClet
         }
 
         return new () { Status = CletRunStatus.Ok };
+
+        void OnEditorViewportChanged (object? sender, DrawEventArgs e)
+        {
+            if (markdownPreview is null || syncingScroll)
+            {
+                return;
+            }
+
+            syncingScroll = true;
+
+            try
+            {
+                int editorContentHeight = editor.GetContentSize ().Height;
+                int editorViewportHeight = editor.Viewport.Height;
+                int maxEditorY = Math.Max (0, editorContentHeight - editorViewportHeight);
+                int editorY = editor.Viewport.Y;
+
+                int previewContentHeight = markdownPreview.GetContentSize ().Height;
+                int previewViewportHeight = markdownPreview.Viewport.Height;
+                int maxPreviewY = Math.Max (0, previewContentHeight - previewViewportHeight);
+
+                int newY = maxEditorY > 0
+                    ? (int)((long)editorY * maxPreviewY / maxEditorY)
+                    : 0;
+
+                markdownPreview.Viewport = markdownPreview.Viewport with { Y = Math.Clamp (newY, 0, maxPreviewY) };
+            }
+            finally
+            {
+                syncingScroll = false;
+            }
+        }
+
+        void NewFile ()
+        {
+            if (!PromptSaveIfDirty ())
+            {
+                return;
+            }
+
+            filePath = null;
+            fileName = null;
+            lastFileByteSize = 0;
+            lastStatusVerb = "Loaded";
+            savedText = string.Empty;
+            editor.ClearSelection ();
+            editor.Document = new TextDocument ();
+            editor.CaretOffset = 0;
+            editor.HighlightingDefinition = null;
+            InstallFolding ();
+            UpdateModifiedIndicator ();
+            statusBar.UpdateLanguageShortcut ();
+            UpdateFileSelectorText ();
+            UpdateModifiedStatus ();
+            isMarkdownFile = false;
+            UpdatePreviewEnabled ();
+        }
     }
 
     private static Task InvokeOnAppAsync (IApplication app, Action action)

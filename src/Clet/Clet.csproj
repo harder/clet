@@ -1,37 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>Clet</RootNamespace>
-    <AssemblyName>clet</AssemblyName>
-    <RollForward>LatestMajor</RollForward>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Clet</RootNamespace>
+        <AssemblyName>clet</AssemblyName>
+        <RollForward>LatestMajor</RollForward>
 
-    <!-- NativeAOT publish settings (apply only to `dotnet publish`, not `dotnet pack`/`dotnet build`). -->
-    <PublishAot>true</PublishAot>
-    <InvariantGlobalization>false</InvariantGlobalization>
-    <StackTraceSupport>true</StackTraceSupport>
-    <DebuggerSupport>false</DebuggerSupport>
-    <EventSourceSupport>false</EventSourceSupport>
-    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+        <!-- NativeAOT publish settings (apply only to `dotnet publish`, not `dotnet pack`/`dotnet build`). -->
+        <PublishAot>true</PublishAot>
+        <InvariantGlobalization>false</InvariantGlobalization>
+        <StackTraceSupport>true</StackTraceSupport>
+        <DebuggerSupport>false</DebuggerSupport>
+        <EventSourceSupport>false</EventSourceSupport>
+        <UseSystemResourceKeys>true</UseSystemResourceKeys>
 
-    <!-- dotnet tool packaging (mdv pattern; see specs/decisions.md D-019. Package id per D-024). -->
-    <PackAsTool>true</PackAsTool>
-    <ToolCommandName>clet</ToolCommandName>
-    <PackageId>clet</PackageId>
-    <Version>1.0.0-alpha</Version>
-    <Description>Turns every Terminal.Gui View into a CLI command — typed inputs, a real file picker, a Markdown browser — with consistent JSON output, predictable exit codes, and full keyboard/mouse support.</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageProjectUrl>https://github.com/gui-cs/clet</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/gui-cs/clet</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>terminal-gui;tui;cli;prompt;json;agent;select;file-picker;markdown</PackageTags>
-  </PropertyGroup>
+        <!-- dotnet tool packaging (mdv pattern; see specs/decisions.md D-019. Package id per D-024). -->
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>clet</ToolCommandName>
+        <PackageId>clet</PackageId>
+        <Version>1.0.0-rc</Version>
+        <Description>Turns every Terminal.Gui View into a CLI command — typed inputs, a real file picker, a Markdown browser — with consistent JSON output, predictable exit codes, and full keyboard/mouse support.</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageProjectUrl>https://github.com/gui-cs/clet</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/gui-cs/clet</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>terminal-gui;tui;cli;prompt;json;agent;select;file-picker;markdown</PackageTags>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Terminal.Gui" Version="$(TerminalGuiVersion)" />
-    <PackageReference Include="Terminal.Gui.Editor" Version="$(TerminalGuiEditorVersion)" />
-    <!--
+    <ItemGroup>
+        <PackageReference Include="Terminal.Gui" Version="$(TerminalGuiVersion)" />
+        <PackageReference Include="Terminal.Gui.Editor" Version="$(TerminalGuiEditorVersion)" />
+        <!--
       Workaround: TG's transitive TextMateSharp reference doesn't flow into
       `dotnet publish` output (only TextMateSharp.Grammars does), so the
       markdown viewer's syntax highlighter throws FileNotFoundException at
@@ -39,16 +39,16 @@
       already brings in via its own dependency. Remove once upstream TG
       fixes the package's asset flow.
     -->
-    <PackageReference Include="TextMateSharp" Version="2.0.3" />
-  </ItemGroup>
+        <PackageReference Include="TextMateSharp" Version="2.0.3" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Help\*.md" />
-  </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Help\*.md" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
+    </ItemGroup>
 
 </Project>

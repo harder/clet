@@ -18,7 +18,7 @@ public class LinearRangeCletIntegrationTests
         };
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
             app, null, options, cts.Token);
@@ -78,3 +78,4 @@ public class LinearRangeCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

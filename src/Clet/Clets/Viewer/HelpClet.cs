@@ -3,17 +3,12 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
-using TextMateSharp.Grammars;
 using Command = Terminal.Gui.Input.Command;
 
 namespace Clet;
 
-internal sealed class HelpClet : IViewerClet
+internal sealed class HelpClet (ICletRegistry registry) : IViewerClet
 {
-    private readonly ICletRegistry _registry;
-
-    public HelpClet (ICletRegistry registry) => _registry = registry;
-
     public string PrimaryAlias => "help";
     public IReadOnlyList<string> Aliases => ["help"];
     public string Description => "Shows help for clet commands.";
@@ -28,7 +23,7 @@ internal sealed class HelpClet : IViewerClet
     {
         string? alias = options.Arguments?.FirstOrDefault ();
 
-        if (alias is not null and not "help" && !_registry.TryResolve (alias, out _))
+        if (alias is not null and not "help" && !registry.TryResolve (alias, out _))
         {
             stderr.WriteLine ($"error: Unknown alias '{alias}'. Try 'clet list' to see available clets.");
 
@@ -55,7 +50,7 @@ internal sealed class HelpClet : IViewerClet
         string? alias = options.Arguments?.FirstOrDefault ();
 
         // Validate alias early — unknown aliases should error, not render
-        if (alias is not null and not "help" && !_registry.TryResolve (alias, out _))
+        if (alias is not null and not "help" && !registry.TryResolve (alias, out _))
         {
             return new ()
             {
@@ -78,7 +73,6 @@ internal sealed class HelpClet : IViewerClet
         // --- Build TUI ---
 
         bool browseMode = !options.NoBrowse;
-        string? currentAlias = alias;
         BrowseBar? browseBar = null;
 
         Runnable window = new ()
@@ -92,18 +86,20 @@ internal sealed class HelpClet : IViewerClet
         {
             Width = Dim.Fill (),
             Height = Dim.Fill (1),
-            SyntaxHighlighter = new TextMateSyntaxHighlighter (ThemeName.DarkPlus),
+            SyntaxHighlighter = new TextMateSyntaxHighlighter (),
         };
 
         markdownView.ViewportSettings |= ViewportSettingsFlags.HasHorizontalScrollBar;
 
-        Shortcut statusShortcut = new (Key.Empty, title, null) { MouseHighlightStates = MouseState.None };
+        Shortcut statusShortcut = new (Key.Empty, title, action: null) { MouseHighlightStates = MouseState.None };
 
         if (browseMode)
         {
             string key = alias ?? "(overview)";
-            browseBar = new BrowseBar (key);
-            browseBar.OnNavigate = NavigateTo;
+            browseBar = new BrowseBar (key)
+            {
+                OnNavigate = NavigateTo,
+            };
         }
 
         markdownView.LinkClicked += (_, e) =>
@@ -155,12 +151,29 @@ internal sealed class HelpClet : IViewerClet
         window.Initialized += (_, _) =>
         {
             markdownView.Text = markdown;
+
+            // Adding links to table cells causes the Markdown view to auto-scroll
+            // to a focused link after layout. Use a counter to reset viewport on
+            // the second draw (after the focus-scroll has run).
+            int drawCount = 0;
+
+            markdownView.DrawComplete += ResetViewport;
+
+            void ResetViewport (object? sender, DrawEventArgs e)
+            {
+                drawCount++;
+
+                if (drawCount >= 2)
+                {
+                    markdownView.DrawComplete -= ResetViewport;
+                    markdownView.Viewport = markdownView.Viewport with { Y = 0 };
+                }
+            }
         };
 
         void NavigateTo (string key)
         {
             string? targetAlias = key == "(overview)" ? null : key;
-            currentAlias = targetAlias;
             (string md, string t) = BuildHelpContent (targetAlias);
             markdownView.Text = md;
             window.Title = t;
@@ -201,7 +214,7 @@ internal sealed class HelpClet : IViewerClet
             return (helpMd, "clet help");
         }
 
-        if (!_registry.TryResolve (alias, out IClet? clet) || clet is null)
+        if (!registry.TryResolve (alias, out IClet? clet) || clet is null)
         {
             return ($"# Unknown clet: {alias}\n\nTry `clet list` to see available clets.", "clet help");
         }
@@ -221,7 +234,7 @@ internal sealed class HelpClet : IViewerClet
             return ("# clet\n\nNo overview available.", "clet");
         }
 
-        string cletTable = MarkdownHelpRenderer.BuildCletTableMarkdown (_registry).TrimEnd ();
+        string cletTable = MarkdownHelpRenderer.BuildCletTableMarkdown (registry).TrimEnd ();
         string markdown = rawMarkdown.Replace ("{{CLET_TABLE}}", cletTable);
         markdown = markdown.Replace ("{{VERSION}}", $"v{GetVersion ()} (Terminal.Gui {GetTerminalGuiVersion ()})");
 

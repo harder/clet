@@ -16,7 +16,7 @@ public class PickFileCletIntegrationTests
         CletRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<JsonNode?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -41,3 +41,4 @@ public class PickFileCletIntegrationTests
         Assert.True (result.Status == CletRunStatus.Ok || result.Status == CletRunStatus.Cancelled);
     }
 }
+

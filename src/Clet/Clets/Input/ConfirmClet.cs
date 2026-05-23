@@ -1,6 +1,4 @@
 using Terminal.Gui.App;
-using Terminal.Gui.Drawing;
-using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
 namespace Clet;
@@ -13,10 +11,7 @@ internal sealed class ConfirmClet : IClet<bool?>
     public CletKind Kind => CletKind.Input;
     public Type ResultType => typeof (bool);
 
-    public IReadOnlyList<CletOptionDescriptor> Options =>
-    [
-        new ("prompt", "p", typeof (string), "Custom prompt text displayed as the title.", false, null),
-    ];
+    public IReadOnlyList<CletOptionDescriptor> Options => [];
 
     public bool TryValidateInitial (string initial, CletRunOptions options)
         => string.Equals (initial, "true", StringComparison.OrdinalIgnoreCase)
@@ -32,7 +27,7 @@ internal sealed class ConfirmClet : IClet<bool?>
     {
         OptionSelector selector = new ()
         {
-            Labels = ["Yes", "No"],
+            Labels = [Terminal.Gui.Resources.Strings.btnYes, Terminal.Gui.Resources.Strings.btnNo],
             AssignHotKeys = true,
         };
 
@@ -50,16 +45,13 @@ internal sealed class ConfirmClet : IClet<bool?>
             }
         }
 
-        // --prompt option overrides --title for the window title
-        string effectiveTitle = options.CletOptions?.TryGetValue ("prompt", out string? promptValue) == true && promptValue is not null
-            ? promptValue
-            : "Confirm (Enter to accept, Esc to cancel)";
+        string defaultTitle = "Confirm (Enter to accept, Esc to cancel)";
 
         RunnableWrapper<OptionSelector, int?> wrapper = new (selector);
 
         return await InputCletRunner.RunAsync<OptionSelector, int?, bool?> (
             app, wrapper, options,
-            effectiveTitle,
+            defaultTitle,
             cancellationToken,
             result =>
             {

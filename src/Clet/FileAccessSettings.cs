@@ -61,7 +61,7 @@ internal static class FileAccessSettings
 
             // Parse the JSONC file — comments are stripped, but all active keys
             // (EditorSettings.*, etc.) are preserved in the rewritten file.
-            JsonNode? root = JsonNode.Parse (
+            var root = JsonNode.Parse (
                 text,
                 documentOptions: new JsonDocumentOptions
                 {
@@ -76,7 +76,7 @@ internal static class FileAccessSettings
 
             // Append to existing array or create a new one.
             // Implicit string → JsonNode cast avoids reflection (IL2026/IL3050).
-            JsonNode dirPathNode = (JsonNode)dirPath;
+            JsonNode dirPathNode = dirPath;
 
             if (obj["FileAccessSettings.AllowedPaths"] is JsonArray existing)
             {

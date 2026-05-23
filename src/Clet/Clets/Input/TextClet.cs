@@ -41,7 +41,7 @@ internal sealed class TextClet : IClet<string?>
 
         Button okButton = new ()
         {
-            Text = "_OK",
+            Text = Terminal.Gui.Resources.Strings.btnOk,
             Y = Pos.Bottom (editor),
         };
 

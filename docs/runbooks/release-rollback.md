@@ -4,12 +4,12 @@
 
 > **Audience:** the maintainer paged at 3am for a `clet` release that escaped the §5.3 smoke gate. Assume you did not ship the bad release. Assume you have repo-admin on `gui-cs/clet`, push access to `gui-cs/homebrew-tap`, the WinGet PR-author cred, and the NuGet API key in a known location.
 
-`clet` auto-publishes to channels on **two triggers** (D-020):
+`clet` auto-publishes from the `main` release workflow:
 
-- **Stable channel** (push to `main`, no `-` suffix in version): NuGet `clet` (latest), Homebrew (gui-cs tap), WinGet (`microsoft/winget-pkgs`).
-- **Develop channel** (push to `develop`, or TG develop dispatch): NuGet `clet` prerelease only (off `latest`; opt-in via `--prerelease`). See [D-024](../../specs/decisions.md) for the package id.
+- **Prerelease phase** (`-rc` suffix from `src/Clet/Clet.csproj`): NuGet `clet` prerelease only (off `latest`; opt-in via `--prerelease`). See [D-024](../../specs/decisions.md) for the package id.
+- **Stable phase** (no `-` suffix in version): NuGet `clet` (latest), Homebrew (gui-cs tap), WinGet (`microsoft/winget-pkgs`).
 
-When the §5.3 smoke gate fails, the workflow halts and nothing reaches users — that case is an *aborted* release, not a *bad* release, and is out of scope for this runbook. This runbook covers the case where the gate let something through (a regression it didn't cover, a manifest bug, a signing failure mid-publish) and one or more channels carry a broken `clet`. **§2.4 covers the develop channel, which has different blast radius and SLAs.**
+When the §5.3 smoke gate fails, the workflow halts and nothing reaches users — that case is an *aborted* release, not a *bad* release, and is out of scope for this runbook. This runbook covers the case where the gate let something through (a regression it didn't cover, a manifest bug, a signing failure mid-publish) and one or more channels carry a broken `clet`.
 
 ## 1. Triage (≤5 minutes)
 
@@ -69,17 +69,9 @@ If you are not sure, rollback. Re-publishing later is cheap; pulling back a bad 
 4. Verify: `dotnet tool search clet` should not surface the bad version.
 5. **Do not request a hard-delete from NuGet support** unless there's a security/IP reason. Hard-delete breaks `dotnet restore` for anyone who pinned, and removes the audit trail.
 
-### 2.4 Develop channel (NuGet prerelease)
+### 2.4 Develop channel
 
-**What's different:** Develop builds publish to NuGet only, as prerelease versions (`X.Y.Z-develop.NN`). They do **not** appear as `latest` to default `dotnet tool install` consumers — only `--prerelease` users see them. Blast radius is therefore much smaller than the release channel.
-
-**Steps when a develop build is bad:**
-
-1. **Default action: do nothing.** TG develop publishes ~5–15× per week. The next develop publish supersedes within hours, and `--prerelease` users self-select for accepting some breakage. Filing an `incident:develop` issue (the workflow already does this on failure) is enough.
-2. **Unlist only if** the bad build is causing active harm to a known user (data loss, hang, security issue) and the next develop publish is more than ~24 hours away. Procedure is identical to §2.3 — unlist via the NuGet web UI; do not hard-delete.
-3. **Do not roll back the TG develop publish itself.** TG's develop branch is upstream of clet's; clet should not push back into TG's release cadence. If the bad clet develop is caused by a bad TG develop, file the issue against TG.
-
-**What `--prerelease` consumers should expect:** the same risk profile as TG develop. We don't add a separate stability gate; we mirror what TG ships.
+`clet` no longer publishes `-develop` packages. Historical `-develop` packages have the same NuGet withdrawal behavior as §2.3, but new incidents should be filed against the main release workflow or the upstream project that sent the bad dispatch payload.
 
 ## 3. Cut a fast-follow patch
 
@@ -87,8 +79,8 @@ Once channels are withdrawn (or while the WinGet PR is pending):
 
 1. Branch from the commit before the bad release: `git checkout -b fix/<TG_VERSION>-rollback`.
 2. Apply the actual fix. Land it via normal PR review (do not `--no-verify`, do not skip CI).
-3. Tag the patch. **Open question (resolve before v0.5):** what's the version scheme? Options under consideration: `<TG_VERSION>+rollback.1` (semver build metadata, ignored by most resolvers), `<TG_VERSION>-rollback.1` (pre-release, may sort wrong), or just `<TG_VERSION>.1` (cleanest, but breaks the strict 1:1-with-TG promise in §5.6 of the spec). Until decided, default to `<TG_VERSION>.1` and document the deviation in release notes.
-4. Push the tag. The normal `release-on-tg-release.yml` workflow does **not** trigger (it listens for `repository_dispatch` from TG, not for tags here). Manually trigger the workflow with the new version, or — better — add a manual-dispatch (`workflow_dispatch`) entry point to the workflow that takes a version input. (This is itself a follow-up improvement.)
+3. Choose the next clet version according to `src/Clet/Clet.csproj` and the existing release tags. Use `workflow_dispatch` with `version_override` only when the automatic version computation would produce the wrong patch or prerelease number.
+4. Manually trigger `release.yml` with the chosen version override when needed.
 5. The §5.3 smoke gate gates the fix the same way it gates a normal release. If the gate fails, **do not bypass it.** Fix the smoke test or fix the binary, then re-run.
 
 ## 4. Post-incident

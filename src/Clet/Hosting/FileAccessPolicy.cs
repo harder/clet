@@ -22,7 +22,7 @@ internal sealed class FileAccessPolicy
     internal const long MaxAggregateSizeBytes = 32L * 1024 * 1024;
 
     /// <summary>Bytes to inspect for binary (NUL) detection.</summary>
-    internal const int BinaryProbeBytes = 8 * 1024;
+    private const int BinaryProbeBytes = 8 * 1024;
 
     /// <summary>Maximum number of files from a single glob expansion.</summary>
     internal const int MaxGlobFiles = 128;

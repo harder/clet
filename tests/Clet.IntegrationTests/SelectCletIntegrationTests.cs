@@ -1,6 +1,4 @@
 using Terminal.Gui.App;
-using Terminal.Gui.Input;
-using Terminal.Gui.Testing;
 using Xunit;
 
 namespace Clet.IntegrationTests;
@@ -21,7 +19,7 @@ public class SelectCletIntegrationTests
         };
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
         CletRunResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
 
@@ -73,3 +71,4 @@ public class SelectCletIntegrationTests
         Assert.Equal (CletRunStatus.Ok, result.Status);
     }
 }
+

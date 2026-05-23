@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Xml;
 using Terminal.Gui.App;
-using Terminal.Gui.Drawing;
-using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
@@ -44,7 +42,7 @@ internal sealed class DurationClet : IClet<string?>
         {
             try
             {
-                TimeSpan parsed = XmlConvert.ToTimeSpan (initial);
+                var parsed = XmlConvert.ToTimeSpan (initial);
                 editor.Value = parsed;
             }
             catch (FormatException)

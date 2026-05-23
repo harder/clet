@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
@@ -46,7 +45,7 @@ internal static class EditorSettings
     /// <summary>
     /// All keys managed by this class. Used for selective persistence.
     /// </summary>
-    private static readonly string[] _keys =
+    private static readonly string[] Keys =
     [
         "EditorSettings.LineNumbers",
         "EditorSettings.FoldIndicators",
@@ -155,7 +154,7 @@ internal static class EditorSettings
     /// <summary>
     /// Returns the keys managed by this class. Useful for testing.
     /// </summary>
-    internal static IReadOnlyList<string> ManagedKeys => _keys;
+    internal static IReadOnlyList<string> ManagedKeys => Keys;
 
     /// <summary>Converts a boolean to its JSON literal.</summary>
     private static string ToJson (bool value) => value ? "true" : "false";

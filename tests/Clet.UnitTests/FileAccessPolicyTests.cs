@@ -145,7 +145,7 @@ public class FileAccessPolicyTests
     {
         string cwd = Path.GetTempPath ();
         string file = Path.Combine (cwd, "binary.md");
-        byte[] content = [0x23, 0x20, 0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]; // "# Hel\0lo"
+        byte[] content = "# Hel\0lo"u8.ToArray ();
         File.WriteAllBytes (file, content);
 
         try
@@ -167,7 +167,7 @@ public class FileAccessPolicyTests
     {
         string cwd = Path.GetTempPath ();
         string file = Path.Combine (cwd, "binary.md");
-        byte[] content = [0x23, 0x20, 0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]; // "# Hel\0lo"
+        byte[] content = "# Hel\0lo"u8.ToArray ();
         File.WriteAllBytes (file, content);
 
         try
