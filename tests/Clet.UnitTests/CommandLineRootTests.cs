@@ -182,7 +182,7 @@ public class CommandLineRootTests
         int exit = await root.InvokeAsync (["select", "-t"], CancellationToken.None, stdout, stderr);
 
         Assert.Equal (ExitCodes.UsageError, exit);
-        Assert.Contains ("--title", stderr.ToString ());
+        Assert.Contains ("-t", stderr.ToString ());
     }
 
     [Fact]
@@ -194,6 +194,28 @@ public class CommandLineRootTests
 
         Assert.Equal (ExitCodes.UsageError, exit);
         Assert.Contains ("--initial", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_PromptMissingValue_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["select", "--prompt"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("--prompt", stderr.ToString ());
+    }
+
+    [Fact]
+    public async Task Alias_ShortPromptFlag_MissingValue_ExitsWithUsageError ()
+    {
+        (CommandLineRoot root, StringWriter stdout, StringWriter stderr) = Build ();
+
+        int exit = await root.InvokeAsync (["select", "-p"], CancellationToken.None, stdout, stderr);
+
+        Assert.Equal (ExitCodes.UsageError, exit);
+        Assert.Contains ("-p", stderr.ToString ());
     }
 
     [Fact]
