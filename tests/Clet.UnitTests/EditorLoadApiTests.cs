@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Text;
-using Terminal.Gui.Document;
+using Terminal.Gui.Editor.Document;
 using Terminal.Gui.Editor;
 using Xunit;
 
