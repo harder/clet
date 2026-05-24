@@ -234,8 +234,29 @@ jobs:
           echo "Resolved Terminal.Gui version: ${TG_VERSION}"
 
           # Compare versions: fail if TG_VERSION < MIN_TG
-          LOWEST=$(printf '%s\n%s' "$TG_VERSION" "$MIN_TG" | sort -V | head -1)
-          if [ "$LOWEST" = "$TG_VERSION" ] && [ "$TG_VERSION" != "$MIN_TG" ]; then
+          # Uses python3 for correct SemVer/NuGet prerelease ordering
+          # (sort -V treats 2.4.0-preview.1 > 2.4.0, but SemVer/NuGet does not)
+          COMPAT=$(python3 -c "
+          import re, sys
+          def parse_ver(v):
+              m = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$', v)
+              if not m:
+                  sys.exit('Invalid version: ' + v)
+              major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+              pre = m.group(4)  # None if no prerelease
+              return (major, minor, patch, pre)
+          def ver_key(v):
+              major, minor, patch, pre = parse_ver(v)
+              # No prerelease => higher than any prerelease of same base
+              if pre is None:
+                  return (major, minor, patch, 1, '')
+              else:
+                  return (major, minor, patch, 0, pre)
+          tg = ver_key('$TG_VERSION')
+          min_tg = ver_key('$MIN_TG')
+          print('compatible' if tg >= min_tg else 'incompatible')
+          ")
+          if [ "$COMPAT" = "incompatible" ]; then
             echo "::error::Version conflict: Terminal.Gui.Editor ${TGE_VERSION} requires Terminal.Gui >= ${MIN_TG}, but resolved TG version is ${TG_VERSION}. Update TerminalGuiVersion in Directory.Build.props or pass a compatible tg_version in the dispatch payload."
             exit 2
           fi
