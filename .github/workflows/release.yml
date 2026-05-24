@@ -160,6 +160,88 @@ jobs:
           echo "- TGE version: \`$TGE_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- channel: \`$CHANNEL\`" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Validate TG/TGE compatibility
+        shell: bash
+        env:
+          TG_VERSION: ${{ steps.version.outputs.tg_version }}
+          TGE_VERSION: ${{ steps.version.outputs.tge_version }}
+        run: |
+          # Query NuGet catalog for Terminal.Gui.Editor's minimum Terminal.Gui dependency.
+          # If our resolved TG version is lower than what TGE requires, fail early with a clear message.
+          TGE_LOWER=$(echo "$TGE_VERSION" | tr '[:upper:]' '[:lower:]')
+          REG_URL="https://api.nuget.org/v3/registration5-gz-semver2/terminal.gui.editor/${TGE_LOWER}.json"
+          REG_INFO=$(curl -sL --compressed "$REG_URL" 2>/dev/null || true)
+
+          if [ -z "$REG_INFO" ]; then
+            echo "::warning::Could not fetch NuGet registration for Terminal.Gui.Editor ${TGE_VERSION}; skipping compat check."
+            exit 0
+          fi
+
+          # The registration response has catalogEntry as a URL; fetch the full catalog entry.
+          CATALOG_URL=$(echo "$REG_INFO" | python3 -c "
+          import json, sys
+          try:
+              data = json.load(sys.stdin)
+              entry = data.get('catalogEntry', '')
+              if isinstance(entry, str) and entry.startswith('http'):
+                  print(entry)
+              elif isinstance(entry, dict):
+                  # Sometimes inline
+                  import json as j
+                  print('INLINE')
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+
+          if [ "$CATALOG_URL" = "INLINE" ]; then
+            CATALOG_INFO="$REG_INFO"
+          elif [ -n "$CATALOG_URL" ]; then
+            CATALOG_INFO=$(curl -sL --compressed "$CATALOG_URL" 2>/dev/null || true)
+          else
+            echo "::warning::Could not resolve catalog entry for Terminal.Gui.Editor ${TGE_VERSION}; skipping compat check."
+            exit 0
+          fi
+
+          # Extract minimum Terminal.Gui version from dependency groups.
+          MIN_TG=$(echo "$CATALOG_INFO" | python3 -c "
+          import json, sys, re
+          try:
+              data = json.load(sys.stdin)
+              # Catalog entry has dependencyGroups at top level or under catalogEntry
+              groups = data.get('dependencyGroups', [])
+              if not groups:
+                  groups = data.get('catalogEntry', {}).get('dependencyGroups', [])
+              for group in groups:
+                  for dep in group.get('dependencies', []):
+                      dep_id = dep.get('id', '') or dep.get('@id', '')
+                      if dep_id.lower() == 'terminal.gui':
+                          range_str = dep.get('range', '')
+                          # NuGet range format: [2.4.0, ) means >= 2.4.0
+                          m = re.search(r'[\[(\s]?(\d+\.\d+\.\d+[^\s,\])*)', range_str)
+                          if m:
+                              print(m.group(1))
+                              sys.exit(0)
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+
+          if [ -z "$MIN_TG" ]; then
+            echo "::warning::Could not determine Terminal.Gui.Editor's TG dependency; skipping compat check."
+            exit 0
+          fi
+
+          echo "Terminal.Gui.Editor ${TGE_VERSION} requires Terminal.Gui >= ${MIN_TG}"
+          echo "Resolved Terminal.Gui version: ${TG_VERSION}"
+
+          # Compare versions: fail if TG_VERSION < MIN_TG
+          LOWEST=$(printf '%s\n%s' "$TG_VERSION" "$MIN_TG" | sort -V | head -1)
+          if [ "$LOWEST" = "$TG_VERSION" ] && [ "$TG_VERSION" != "$MIN_TG" ]; then
+            echo "::error::Version conflict: Terminal.Gui.Editor ${TGE_VERSION} requires Terminal.Gui >= ${MIN_TG}, but resolved TG version is ${TG_VERSION}. Update TerminalGuiVersion in Directory.Build.props or pass a compatible tg_version in the dispatch payload."
+            exit 2
+          fi
+
+          echo "✓ TG/TGE versions are compatible."
+
   build:
     needs: resolve-version
     strategy:
