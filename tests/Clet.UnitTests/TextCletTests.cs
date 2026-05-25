@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class TextCletTests
@@ -17,7 +19,7 @@ public class TextCletTests
     {
         TextClet clet = new ();
 
-        Assert.Equal (CletKind.Input, clet.Kind);
+        Assert.Equal (CommandKind.Input, clet.Kind);
     }
 
     [Fact]
@@ -71,7 +73,7 @@ public class TextCletTests
     [Fact]
     public void AcceptsPositionalArgs_IsFalse ()
     {
-        IClet clet = new TextClet ();
+        ICliCommand clet = new TextClet ();
 
         Assert.False (clet.AcceptsPositionalArgs);
     }

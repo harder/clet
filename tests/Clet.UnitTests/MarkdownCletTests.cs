@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class MarkdownCletTests
@@ -17,7 +19,7 @@ public class MarkdownCletTests
     {
         MarkdownClet clet = new ();
 
-        Assert.Equal (CletKind.Viewer, clet.Kind);
+        Assert.Equal (CommandKind.Viewer, clet.Kind);
     }
 
     [Fact]

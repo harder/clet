@@ -5,18 +5,19 @@ using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using TextMateSharp.Grammars;
 using Command = Terminal.Gui.Input.Command;
+using Terminal.Gui.Cli;
 
 namespace Clet;
 
-internal sealed class MarkdownClet : IViewerClet
+internal sealed class MarkdownClet : IViewerCommand
 {
     public string PrimaryAlias => "md";
     public IReadOnlyList<string> Aliases => ["md", "markdown"];
     public string Description => "Browse and render Markdown files with link navigation and syntax highlighting.";
-    public CletKind Kind => CletKind.Viewer;
+    public CommandKind Kind => CommandKind.Viewer;
     public Type ResultType => typeof (void);
 
-    public IReadOnlyList<CletOptionDescriptor> Options =>
+    public IReadOnlyList<CommandOptionDescriptor> Options =>
     [
         new ("theme", "t", typeof (string),
             $"Syntax-highlighting theme. Available: {string.Join (", ", Enum.GetNames<ThemeName> ())}",
@@ -31,15 +32,49 @@ internal sealed class MarkdownClet : IViewerClet
 
     public bool AcceptsPositionalArgs => true;
 
-    public async Task<CletRunResult> RunAsync (
+    public Task<CommandResult?> RenderCatAsync (CommandRunOptions options, TextWriter stdout, CancellationToken cancellationToken)
+    {
+        TextReader? stdinReader = Console.IsInputRedirected ? Console.In : null;
+        MarkdownContentResolver.ResolveResult resolved = MarkdownContentResolver.Resolve (null, options, stdinReader);
+
+        if (!resolved.IsSuccess)
+        {
+            if (options.JsonOutput)
+            {
+                stdout.WriteLine (JsonEnvelope.Error (resolved.ErrorCode ?? "error", resolved.ErrorMessage ?? "Content resolution failed.").ToJson ());
+            }
+            else
+            {
+                Console.Error.WriteLine ($"Error: {resolved.ErrorMessage}");
+            }
+
+            return Task.FromResult<CommandResult?> (new CommandResult (CommandStatus.Error, null, resolved.ErrorCode, resolved.ErrorMessage));
+        }
+
+        string? content = resolved.Content;
+
+        if (resolved.Files.Count > 0)
+        {
+            content = File.ReadAllText (resolved.Files[0]);
+        }
+
+        if (content is not null)
+        {
+            MarkdownRenderer.RenderToAnsi (content, stdout);
+        }
+
+        return Task.FromResult<CommandResult?> (new CommandResult (CommandStatus.Ok, null, null, null));
+    }
+
+    public async Task<CommandResult> RunAsync (
         IApplication app,
         string? content,
-        CletRunOptions options,
+        CommandRunOptions options,
         CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         // Resolve content: file args → inline content → stdin → error
@@ -48,7 +83,7 @@ internal sealed class MarkdownClet : IViewerClet
 
         if (!resolved.IsSuccess)
         {
-            return new () { Status = CletRunStatus.Error, ErrorCode = resolved.ErrorCode, ErrorMessage = resolved.ErrorMessage };
+            return new (CommandStatus.Error, default, resolved.ErrorCode, resolved.ErrorMessage);
         }
 
         List<string> files = resolved.Files;
@@ -64,18 +99,18 @@ internal sealed class MarkdownClet : IViewerClet
         // File access policy for link navigation (reuse the same confinement as file loading)
         FileAccessPolicy linkPolicy = new (
             Directory.GetCurrentDirectory (),
-            options.AllowedFiles,
-            options.AllowBinary);
+            options.GetAllowedFiles (),
+            options.GetAllowBinary ());
 
         // Browser mode
-        bool browseMode = !options.NoBrowse;
+        bool browseMode = !options.GetNoBrowse ();
         string? currentFile = files.Count > 0 ? Path.GetFullPath (files[0]) : null;
         BrowseBar? browseBar = null;
 
         // Parse --theme option
         ThemeName syntaxTheme = ThemeName.DarkPlus;
 
-        if (options.CletOptions?.TryGetValue ("theme", out string? themeStr) == true
+        if (options.CommandOptions.TryGetValue ("theme", out string? themeStr) == true
             && Enum.TryParse (themeStr, ignoreCase: true, out ThemeName parsed))
         {
             syntaxTheme = parsed;
@@ -270,15 +305,15 @@ internal sealed class MarkdownClet : IViewerClet
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
-        return new () { Status = CletRunStatus.Ok };
+        return new (CommandStatus.Ok, null, null, null);
 
         void LoadFile (string filePath, string? fragment = null)
         {

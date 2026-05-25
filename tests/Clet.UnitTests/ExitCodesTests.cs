@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class ExitCodesTests
@@ -16,16 +18,16 @@ public class ExitCodesTests
     }
 
     [Theory]
-    [InlineData ((int)CletRunStatus.Ok, null, 0)]
-    [InlineData ((int)CletRunStatus.Cancelled, null, 130)]
-    [InlineData ((int)CletRunStatus.NoResult, null, 1)]
-    [InlineData ((int)CletRunStatus.Error, "validation", 65)]
-    [InlineData ((int)CletRunStatus.Error, "input-too-large", 65)]
-    [InlineData ((int)CletRunStatus.Error, "io", 74)]
-    [InlineData ((int)CletRunStatus.Error, "anything-else", 2)]
+    [InlineData ((int)CommandStatus.Ok, null, 0)]
+    [InlineData ((int)CommandStatus.Cancelled, null, 130)]
+    [InlineData ((int)CommandStatus.NoResult, null, 1)]
+    [InlineData ((int)CommandStatus.Error, "validation", 65)]
+    [InlineData ((int)CommandStatus.Error, "input-too-large", 2)]
+    [InlineData ((int)CommandStatus.Error, "io", 74)]
+    [InlineData ((int)CommandStatus.Error, "anything-else", 2)]
     public void FromResult_MapsStatusToExit (int statusInt, string? errorCode, int expected)
     {
-        BoxedCletResult result = new ((CletRunStatus)statusInt, null, errorCode, null);
+        CommandResult result = new ((CommandStatus)statusInt, null, errorCode, null);
 
         Assert.Equal (expected, ExitCodes.FromResult (result));
     }
