@@ -35,7 +35,7 @@ internal sealed class MarkdownClet : IViewerCommand
     public Task<CommandResult?> RenderCatAsync (CommandRunOptions options, TextWriter stdout, CancellationToken cancellationToken)
     {
         TextReader? stdinReader = Console.IsInputRedirected ? Console.In : null;
-        MarkdownContentResolver.ResolveResult resolved = MarkdownContentResolver.Resolve (null, options, stdinReader);
+        MarkdownContentResolver.ResolveResult resolved = MarkdownContentResolver.Resolve (options.Initial, options, stdinReader);
 
         if (!resolved.IsSuccess)
         {
@@ -52,11 +52,6 @@ internal sealed class MarkdownClet : IViewerCommand
         }
 
         string? content = resolved.Content;
-
-        if (resolved.Files.Count > 0)
-        {
-            content = File.ReadAllText (resolved.Files[0]);
-        }
 
         if (content is not null)
         {

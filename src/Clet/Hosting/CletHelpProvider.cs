@@ -28,6 +28,9 @@ internal sealed class CletHelpProvider : IHelpProvider
         markdown = markdown.Replace ("{{CLET_TABLE}}", cletTable);
         markdown = markdown.Replace ("{{VERSION}}", $"v{VersionInfo.GetCletVersion ()} (Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()})");
 
+        // Normalize legacy clet:help: scheme to help: for the new help viewer
+        markdown = markdown.Replace ("clet:help:", "help:");
+
         return markdown;
     }
 

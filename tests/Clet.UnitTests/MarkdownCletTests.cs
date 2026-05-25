@@ -1,3 +1,4 @@
+using System.Threading;
 using Xunit;
 
 using Terminal.Gui.Cli;
@@ -74,6 +75,60 @@ public class MarkdownCletTests
         MarkdownClet clet = new ();
 
         Assert.True (clet.AcceptsPositionalArgs);
+    }
+
+    [Fact]
+    public async Task RenderCatAsync_WithInitialContent_RendersInlineContent ()
+    {
+        MarkdownClet clet = new ();
+        CommandRunOptions options = new () { Initial = "# Hello from initial", Cat = true, JsonOutput = false };
+        using StringWriter stdout = new ();
+
+        CommandResult? result = await clet.RenderCatAsync (options, stdout, CancellationToken.None);
+
+        Assert.NotNull (result);
+        Assert.Equal (CommandStatus.Ok, result!.Value.Status);
+
+        string output = stdout.ToString ();
+        Assert.Contains ("Hello from initial", output);
+    }
+
+    [Fact]
+    public async Task RenderCatAsync_MultipleFiles_RendersAllFileContent ()
+    {
+        string tempDir = Path.Combine (Path.GetTempPath (), "clet-test-" + Guid.NewGuid ().ToString ("N"));
+        Directory.CreateDirectory (tempDir);
+
+        try
+        {
+            string file1 = Path.Combine (tempDir, "first.md");
+            string file2 = Path.Combine (tempDir, "second.md");
+            File.WriteAllText (file1, "# First File");
+            File.WriteAllText (file2, "# Second File");
+
+            MarkdownClet clet = new ();
+            CommandRunOptions options = new ()
+            {
+                Arguments = [file1, file2],
+                Cat = true,
+                JsonOutput = false,
+                Extensions = new Dictionary<string, IReadOnlyList<string>> { ["allow-file"] = [tempDir] },
+            };
+            using StringWriter stdout = new ();
+
+            CommandResult? result = await clet.RenderCatAsync (options, stdout, CancellationToken.None);
+
+            Assert.NotNull (result);
+            Assert.Equal (CommandStatus.Ok, result!.Value.Status);
+
+            string output = stdout.ToString ();
+            Assert.Contains ("First File", output);
+            Assert.Contains ("Second File", output);
+        }
+        finally
+        {
+            Directory.Delete (tempDir, true);
+        }
     }
 
     [Fact]
