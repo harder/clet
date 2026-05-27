@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class AttributePickerCletTests
@@ -17,7 +19,7 @@ public class AttributePickerCletTests
     {
         AttributePickerClet clet = new ();
 
-        Assert.Equal (CletKind.Input, clet.Kind);
+        Assert.Equal (CommandKind.Input, clet.Kind);
     }
 
     [Fact]
@@ -55,7 +57,7 @@ public class AttributePickerCletTests
     [Fact]
     public void AcceptsPositionalArgs_IsFalse ()
     {
-        IClet clet = new AttributePickerClet ();
+        ICliCommand clet = new AttributePickerClet ();
 
         Assert.False (clet.AcceptsPositionalArgs);
     }

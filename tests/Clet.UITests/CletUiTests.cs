@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UITests;
 
 /// <summary>
@@ -111,10 +113,10 @@ public class CletUiTests
 
             await using var harness = await CletUiHarness<object?>.StartViewerAsync (
                 new EditorClet (),
-                options: new CletRunOptions
+                options: new CommandRunOptions
                 {
                     Arguments = [path],
-                    AllowedFiles = [path],
+                    Extensions = new Dictionary<string, IReadOnlyList<string>> { ["allow-file"] = [path] },
                 },
                 width: 120,
                 height: 20);
@@ -138,10 +140,10 @@ public class CletUiTests
 
             await using var harness = await CletUiHarness<object?>.StartViewerAsync (
                 new EditorClet (),
-                options: new CletRunOptions
+                options: new CommandRunOptions
                 {
                     Arguments = [path],
-                    AllowedFiles = [path],
+                    Extensions = new Dictionary<string, IReadOnlyList<string>> { ["allow-file"] = [path] },
                 },
                 width: 80,
                 height: 12);
@@ -164,22 +166,13 @@ public class CletUiTests
         => await WithTempHomeAsync (async () => await AssertViewerRenderAsync (
             new ConfigClet (), "config.ans", "clet config", width: 100, height: 20));
 
-    [Fact]
-    public async Task HelpClet_InitialRender_MatchesAnsiGolden ()
-    {
-        CletRegistry registry = new ();
-        BuiltInClets.RegisterAll (registry);
-
-        await AssertViewerRenderAsync (
-            new HelpClet (registry), "help.ans", "clet", width: 80, height: 18);
-    }
 
     private static async Task AssertInputRenderAsync<T> (
-        IClet<T> clet,
+        ICliCommand<T> clet,
         string goldenName,
         string _,
         string? initial = null,
-        CletRunOptions? options = null,
+        CommandRunOptions? options = null,
         int width = 60,
         int height = 10)
     {
@@ -191,11 +184,11 @@ public class CletUiTests
     }
 
     private static async Task AssertViewerRenderAsync (
-        IViewerClet clet,
+        IViewerCommand clet,
         string goldenName,
         string _,
         string? initial = null,
-        CletRunOptions? options = null,
+        CommandRunOptions? options = null,
         int width = 60,
         int height = 15)
     {
@@ -206,8 +199,8 @@ public class CletUiTests
         harness.AssertMatchesAnsiGolden (goldenName);
     }
 
-    private static CletRunOptions Options (string name, string value)
-        => new () { CletOptions = new Dictionary<string, string> { [name] = value } };
+    private static CommandRunOptions Options (string name, string value)
+        => new () { CommandOptions = new Dictionary<string, string> { [name] = value } };
 
     private static IEnumerable<int> AllIndexesOf (string text, string value)
     {

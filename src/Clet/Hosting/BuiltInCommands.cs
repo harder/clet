@@ -1,8 +1,14 @@
+using Terminal.Gui.Cli;
+
 namespace Clet;
 
-internal static class BuiltInClets
+/// <summary>
+/// Registers all built-in clet commands into the given registry.
+/// Used by <see cref="Program"/> and by test projects for test isolation.
+/// </summary>
+internal static class BuiltInCommands
 {
-    public static void RegisterAll (ICletRegistry registry)
+    public static void RegisterAll (ICommandRegistry registry)
     {
         registry.Register (new SelectClet ());
         registry.Register (new TextClet ());
@@ -21,6 +27,5 @@ internal static class BuiltInClets
         registry.Register (new EditorClet ());
         registry.Register (new MarkdownClet ());
         registry.Register (new ConfigClet ());
-        registry.Register (new HelpClet (registry));
     }
 }

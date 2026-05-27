@@ -30,6 +30,7 @@
 
     <ItemGroup>
         <PackageReference Include="Terminal.Gui" Version="$(TerminalGuiVersion)" />
+        <PackageReference Include="Terminal.Gui.Cli" Version="$(TerminalGuiCliVersion)" />
         <PackageReference Include="Terminal.Gui.Editor" Version="$(TerminalGuiEditorVersion)" />
         <!--
       Workaround: TG's transitive TextMateSharp reference doesn't flow into

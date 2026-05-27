@@ -5,28 +5,29 @@ using Terminal.Gui.Editor;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
+using Terminal.Gui.Cli;
 
 namespace Clet;
 
-internal sealed class TextClet : IClet<string?>
+internal sealed class TextClet : ICliCommand<string?>
 {
     public string PrimaryAlias => "text";
     public IReadOnlyList<string> Aliases => ["text", "multiline-text", "mt"];
     public string Description => "Prompts for multi-line text input using an editor and returns the entered string.";
-    public CletKind Kind => CletKind.Input;
+    public CommandKind Kind => CommandKind.Input;
     public Type ResultType => typeof (string);
 
-    public IReadOnlyList<CletOptionDescriptor> Options => [];
+    public IReadOnlyList<CommandOptionDescriptor> Options => [];
 
-    public async Task<CletRunResult<string?>> RunAsync (
+    public async Task<CommandResult<string?>> RunAsync (
         IApplication app,
         string? initial,
-        CletRunOptions options,
+        CommandRunOptions options,
         CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         int rows = options.Rows ?? 5;
@@ -64,16 +65,16 @@ internal sealed class TextClet : IClet<string?>
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         string? result = wrapper.Result;
 
-        return new () { Status = CletRunStatus.Ok, Value = result };
+        return new (CommandStatus.Ok, result, null, null);
     }
 }
