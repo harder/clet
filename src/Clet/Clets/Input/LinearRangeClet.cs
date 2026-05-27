@@ -22,10 +22,11 @@ using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
+using Terminal.Gui.Cli;
 
 namespace Clet;
 
-internal sealed class LinearRangeClet : IClet<JsonObject?>
+internal sealed class LinearRangeClet : ICliCommand<JsonObject?>
 {
     public string PrimaryAlias => "linear-range";
     public IReadOnlyList<string> Aliases => ["linear-range", "range"];
@@ -34,10 +35,10 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         "Presents a LinearRange (single, multi, or bounded range) over a list of labelled options "
         + "and returns the selection.";
 
-    public CletKind Kind => CletKind.Input;
+    public CommandKind Kind => CommandKind.Input;
     public Type ResultType => typeof (JsonObject);
 
-    public IReadOnlyList<CletOptionDescriptor> Options =>
+    public IReadOnlyList<CommandOptionDescriptor> Options =>
     [
         new("mode", "m", typeof(string),
             "Selection shape: 'single' (default), 'multi', or 'range'.",
@@ -57,15 +58,15 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
 
     public bool AcceptsPositionalArgs => true;
 
-    public async Task<CletRunResult<JsonObject?>> RunAsync (
+    public async Task<CommandResult<JsonObject?>> RunAsync (
         IApplication app,
         string? initial,
-        CletRunOptions options,
+        CommandRunOptions options,
         CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         // ----- Parse CLI options -----
@@ -82,9 +83,9 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
             _ => Orientation.Horizontal
         };
 
-        string[] labels = options.Arguments is { Count: > 0 }
+        string[] labels = options.Arguments.Count > 0
             ? LabelParser.Split (options.Arguments)
-            : options.CletOptions?.TryGetValue ("options", out string? optionsValue) == true
+            : options.CommandOptions.TryGetValue ("options", out string? optionsValue) == true
                 ? LabelParser.Split (optionsValue)
                 : [];
 
@@ -92,7 +93,7 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         {
             return new ()
             {
-                Status = CletRunStatus.Error,
+                Status = CommandStatus.Error,
                 ErrorCode = "validation",
                 ErrorMessage = "linear-range requires --options or positional arguments.",
             };
@@ -119,10 +120,10 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
     // Single
     // -----------------------------------------------------------------------------
 
-    private static async Task<CletRunResult<JsonObject?>> RunSingle (
+    private static async Task<CommandResult<JsonObject?>> RunSingle (
         IApplication app,
         string? initial,
-        CletRunOptions options,
+        CommandRunOptions options,
         string[] labels,
         List<LinearRangeOption<string>> linearOptions,
         Orientation orientation,
@@ -164,12 +165,12 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         string? value = wrapper.Result;
@@ -182,17 +183,17 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
             ["index"] = index,
         };
 
-        return new () { Status = CletRunStatus.Ok, Value = json };
+        return new (CommandStatus.Ok, json, null, null);
     }
 
     // -----------------------------------------------------------------------------
     // Multi
     // -----------------------------------------------------------------------------
 
-    private static async Task<CletRunResult<JsonObject?>> RunMulti (
+    private static async Task<CommandResult<JsonObject?>> RunMulti (
         IApplication app,
         string? initial,
-        CletRunOptions options,
+        CommandRunOptions options,
         string[] labels,
         List<LinearRangeOption<string>> linearOptions,
         Orientation orientation,
@@ -240,12 +241,12 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new CletRunResult<JsonObject?> { Status = CletRunStatus.Cancelled };
+            return new CommandResult<JsonObject?> { Status = CommandStatus.Cancelled };
         }
 
         IReadOnlyList<string> result = wrapper.Result ?? [];
@@ -266,17 +267,17 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
             ["indices"] = indices,
         };
 
-        return new CletRunResult<JsonObject?> { Status = CletRunStatus.Ok, Value = json };
+        return new CommandResult<JsonObject?> { Status = CommandStatus.Ok, Value = json };
     }
 
     // -----------------------------------------------------------------------------
     // Range
     // -----------------------------------------------------------------------------
 
-    private static async Task<CletRunResult<JsonObject?>> RunRange (
+    private static async Task<CommandResult<JsonObject?>> RunRange (
         IApplication app,
         string? initial,
-        CletRunOptions options,
+        CommandRunOptions options,
         string[] labels,
         List<LinearRangeOption<string>> linearOptions,
         Orientation orientation,
@@ -327,12 +328,12 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         LinearRangeSpan<string> span = wrapper.Result;
@@ -375,21 +376,21 @@ internal sealed class LinearRangeClet : IClet<JsonObject?>
                 break;
         }
 
-        return new () { Status = CletRunStatus.Ok, Value = json };
+        return new (CommandStatus.Ok, json, null, null);
     }
 
     // -----------------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------------
 
-    private static string? GetOption (CletRunOptions options, string name)
+    private static string? GetOption (CommandRunOptions options, string name)
     {
-        if (options.CletOptions is null)
+        if (options.CommandOptions is null)
         {
             return null;
         }
 
-        return options.CletOptions.GetValueOrDefault (name);
+        return options.CommandOptions.GetValueOrDefault (name);
     }
 
     private static bool ParseBool (string? raw)

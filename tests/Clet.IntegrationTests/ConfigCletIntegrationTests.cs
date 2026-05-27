@@ -1,6 +1,8 @@
 using Terminal.Gui.App;
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.IntegrationTests;
 
 public class ConfigCletIntegrationTests
@@ -12,14 +14,14 @@ public class ConfigCletIntegrationTests
         app.Init ("ansi");
 
         ConfigClet clet = new ();
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
         await cts.CancelAsync ();
 
-        CletRunResult result = await clet.RunAsync (app, null, options, cts.Token);
+        CommandResult result = await clet.RunAsync (app, null, options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Cancelled, result.Status);
+        Assert.Equal (CommandStatus.Cancelled, result.Status);
     }
 
     [Fact]
@@ -73,14 +75,14 @@ public class ConfigCletIntegrationTests
             app.StopAfterFirstIteration = true;
 
             ConfigClet clet = new ();
-            CletRunOptions options = new ();
+            CommandRunOptions options = new ();
 
             using CancellationTokenSource cts = new ();
 
             // This should NOT throw — errors should be caught internally
-            CletRunResult result = await clet.RunAsync (app, null, options, cts.Token);
+            CommandResult result = await clet.RunAsync (app, null, options, cts.Token);
 
-            Assert.Equal (CletRunStatus.Ok, result.Status);
+            Assert.Equal (CommandStatus.Ok, result.Status);
         }
         finally
         {

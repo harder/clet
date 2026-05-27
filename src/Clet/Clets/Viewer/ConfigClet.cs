@@ -12,10 +12,11 @@ using Terminal.Gui.Editor.Highlighting;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Command = Terminal.Gui.Input.Command;
+using Terminal.Gui.Cli;
 
 namespace Clet;
 
-internal sealed class ConfigClet : IViewerClet
+internal sealed class ConfigClet : IViewerCommand
 {
     /// <summary>The config file name inside ~/.tui/.</summary>
     internal const string ConfigFileName = "clet.config.json";
@@ -23,20 +24,20 @@ internal sealed class ConfigClet : IViewerClet
     public string PrimaryAlias => "config";
     public IReadOnlyList<string> Aliases => ["config"];
     public string Description => "Edit the clet configuration file (~/.tui/clet.config.json).";
-    public CletKind Kind => CletKind.Viewer;
+    public CommandKind Kind => CommandKind.Viewer;
     public Type ResultType => typeof (void);
 
-    public IReadOnlyList<CletOptionDescriptor> Options => [];
+    public IReadOnlyList<CommandOptionDescriptor> Options => [];
 
-    public async Task<CletRunResult> RunAsync (
+    public async Task<CommandResult> RunAsync (
         IApplication app,
         string? content,
-        CletRunOptions options,
+        CommandRunOptions options,
         CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         string configPath = GetConfigPath ();
@@ -157,15 +158,15 @@ internal sealed class ConfigClet : IViewerClet
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
-        return new () { Status = CletRunStatus.Ok };
+        return new (CommandStatus.Ok, null, null, null);
 
         void UpdateTitle ()
         {

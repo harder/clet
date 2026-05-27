@@ -96,8 +96,8 @@ clet edit ./notes.txt
 # Open the configuration editor (theming, keybindings, etc.)
 clet config
 
-# See all available clets
-clet list
+# See available commands (TUI help viewer)
+clet help
 ```
 
 ### AI agent usage (`--json`)
@@ -115,9 +115,9 @@ clet pick-file --json --root ./src --timeout 30s
 clet confirm --json "Apply this patch?"
 # → {"schemaVersion":1,"status":"cancelled"}   (exit 130)
 
-# Discover available clets once per session
-clet list --json
-# → {"schemaVersion":1,"clets":[{"alias":"select","kind":"input","resultType":"string",...},...]}
+# Discover available commands (machine-readable manifest)
+clet --opencli
+# → {"name":"clet","version":"...","commands":[{"alias":"select","kind":"input","resultType":"string",...},...]}
 ```
 
 Exit codes: 
