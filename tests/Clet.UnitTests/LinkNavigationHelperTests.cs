@@ -21,7 +21,7 @@ public class LinkNavigationHelperTests
     [Fact]
     public void HandleLinkClicked_CustomSchemeHandler_ReturnsTrue_SetsHandled ()
     {
-        var args = CreateArgs ("clet:help:select");
+        Terminal.Gui.Views.MarkdownLinkEventArgs args = CreateArgs ("clet:help:select");
         string? statusUrl = null;
 
         LinkNavigationHelper.HandleLinkClicked (
@@ -37,7 +37,7 @@ public class LinkNavigationHelperTests
     [Fact]
     public void HandleLinkClicked_CustomSchemeHandler_ReturnsFalse_FallsThrough ()
     {
-        var args = CreateArgs ("https://example.com");
+        Terminal.Gui.Views.MarkdownLinkEventArgs args = CreateArgs ("https://example.com");
         string? statusUrl = null;
 
         LinkNavigationHelper.HandleLinkClicked (
@@ -53,7 +53,7 @@ public class LinkNavigationHelperTests
     [Fact]
     public void HandleLinkClicked_NoCustomHandler_UpdatesStatus ()
     {
-        var args = CreateArgs ("file:///etc/passwd");
+        Terminal.Gui.Views.MarkdownLinkEventArgs args = CreateArgs ("file:///etc/passwd");
         string? statusUrl = null;
 
         LinkNavigationHelper.HandleLinkClicked (
@@ -71,7 +71,7 @@ public class LinkNavigationHelperTests
     {
         // Verify that the status updater is always called and Handled is set.
         // openHttpLinks is false to avoid launching a real browser in tests.
-        var args = CreateArgs ("https://example.com");
+        Terminal.Gui.Views.MarkdownLinkEventArgs args = CreateArgs ("https://example.com");
         string? statusUrl = null;
 
         LinkNavigationHelper.HandleLinkClicked (

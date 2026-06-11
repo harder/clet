@@ -2,10 +2,10 @@ name: Release
 
 # Versioning scheme:
 #
-#   main branch  → v1.0.0-alpha.1, v1.0.0-alpha.2, ...
+#   main branch  → v1.0.0-rc.1, v1.0.0-rc.2, ...
 #                   (base from csproj <Version>, build number auto-increments)
 #
-#   When alpha phase ends, change csproj <Version> to 1.0.0 (no suffix).
+#   When rc phase ends, change csproj <Version> to 1.0.0 (no suffix).
 #   Then main produces: v1.0.0, v1.0.1, ... (patch auto-increment).
 #
 # Triggers:
@@ -15,10 +15,10 @@ name: Release
 #   4. Manual workflow_dispatch
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths: ['src/**', 'tests/**']
   repository_dispatch:
-    types: [tg-main-published, editor-main-published, editor-develop-published]
+    types: [tg-main-published, editor-main-published]
   workflow_dispatch:
     inputs:
       tg_version:
@@ -48,6 +48,12 @@ jobs:
       tge_version: ${{ steps.version.outputs.tge_version }}
       channel: ${{ steps.version.outputs.channel }}
     steps:
+      - name: Guard non-main dispatch
+        if: github.event_name == 'workflow_dispatch' && github.ref_name != 'main' && github.event.inputs.version_override == ''
+        run: |
+          echo "::error::workflow_dispatch from non-main branch '${{ github.ref_name }}' requires version_override."
+          exit 2
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -60,7 +66,6 @@ jobs:
           TG_VERSION_INPUT: ${{ github.event.client_payload.tg_version || github.event.inputs.tg_version }}
           TGE_VERSION_INPUT: ${{ github.event.client_payload.tge_version || github.event.inputs.tge_version }}
           VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           # --- Validate user-supplied version inputs (prevent script injection) ---
           # Empty TG_VERSION_INPUT is allowed; the script falls back to the csproj pin below.
@@ -78,20 +83,14 @@ jobs:
             exit 2
           fi
 
-          # --- Determine TG version ---
-          TG_VERSION="$TG_VERSION_INPUT"
-
           # --- Channel detection ---
-          if [ "${{ github.ref }}" = "refs/heads/develop" ] || [ "${{ github.event.action }}" = "editor-develop-published" ]; then
-            CHANNEL="develop"
-          else
-            CHANNEL="main"
-          fi
+          CHANNEL="main"
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
 
           # --- Resolve TG version ---
           # Dispatch/manual: use the explicitly provided version.
           # Otherwise: use the Directory.Build.props pin (known-good).
+          TG_VERSION="$TG_VERSION_INPUT"
           if [ -z "$TG_VERSION" ]; then
             TG_VERSION=$(sed -n 's/.*<TerminalGuiVersion[^>]*>\([^<]*\)<.*/\1/p' Directory.Build.props | head -1)
           fi
@@ -118,7 +117,7 @@ jobs:
             exit 0
           fi
 
-          # Read base version from csproj (e.g. "1.0.0-alpha" or "1.0.0")
+          # Read base version from csproj (e.g. "1.0.0-rc" or "1.0.0")
           CSPROJ_VERSION=$(sed -n 's/.*<Version>\([^<]*\)<.*/\1/p' src/Clet/Clet.csproj | head -1)
           # Split into base (1.0.0) and prerelease phase (alpha, beta, rc, or empty)
           BASE_VERSION="${CSPROJ_VERSION%%-*}"
@@ -133,49 +132,25 @@ jobs:
           PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
 
           if [ -n "$PHASE" ]; then
-            if [ "$CHANNEL" = "develop" ]; then
-              # Develop channel: version is BASE-develop.N, auto-increment N
-              LATEST_TAG=$(git tag --list "v${BASE_VERSION}-develop.*" --sort=-v:refname | head -1)
-              if [ -n "$LATEST_TAG" ]; then
-                BUILD_NUM=$(echo "$LATEST_TAG" | sed 's/.*develop\.//' | sed 's/-.*//')
-                BUILD_NUM=$((BUILD_NUM + 1))
-              else
-                BUILD_NUM=1
-              fi
-              CLET_VERSION="${BASE_VERSION}-develop.${BUILD_NUM}"
+            # Main channel rc phase: version is BASE-PHASE.N, auto-increment N
+            # Find latest tag matching v1.0.0-rc.*
+            LATEST_TAG=$(git tag --list "v${BASE_VERSION}-${PHASE}.*" --sort=-v:refname | head -1)
+            if [ -n "$LATEST_TAG" ]; then
+              # Extract the build number (last dot-separated segment)
+              BUILD_NUM=$(echo "$LATEST_TAG" | sed "s/.*${PHASE}\.//" | sed 's/-.*//')
+              BUILD_NUM=$((BUILD_NUM + 1))
             else
-              # Main channel alpha/beta/rc phase: version is BASE-PHASE.N, auto-increment N
-              # Find latest tag matching v1.0.0-alpha.*
-              LATEST_TAG=$(git tag --list "v${BASE_VERSION}-${PHASE}.*" --sort=-v:refname | head -1)
-              if [ -n "$LATEST_TAG" ]; then
-                # Extract the build number (last dot-separated segment)
-                BUILD_NUM=$(echo "$LATEST_TAG" | sed "s/.*${PHASE}\.//" | sed 's/-.*//')
-                BUILD_NUM=$((BUILD_NUM + 1))
-              else
-                BUILD_NUM=1
-              fi
-              CLET_VERSION="${BASE_VERSION}-${PHASE}.${BUILD_NUM}"
+              BUILD_NUM=1
             fi
+            CLET_VERSION="${BASE_VERSION}-${PHASE}.${BUILD_NUM}"
           else
-            if [ "$CHANNEL" = "develop" ]; then
-              # Develop channel with stable base: version is MAJOR.MINOR.PATCH-develop.N
-              LATEST_TAG=$(git tag --list "v${BASE_VERSION}-develop.*" --sort=-v:refname | head -1)
-              if [ -n "$LATEST_TAG" ]; then
-                BUILD_NUM=$(echo "$LATEST_TAG" | sed 's/.*develop\.//' | sed 's/-.*//')
-                BUILD_NUM=$((BUILD_NUM + 1))
-              else
-                BUILD_NUM=1
-              fi
-              CLET_VERSION="${BASE_VERSION}-develop.${BUILD_NUM}"
-            else
-              # Stable phase: version is MAJOR.MINOR.PATCH, auto-increment patch
-              LATEST_TAG=$(git tag --list "v${MAJOR}.${MINOR}.*" --sort=-v:refname | grep -v '-' | head -1)
-              if [ -n "$LATEST_TAG" ]; then
-                LATEST_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
-                PATCH=$((LATEST_PATCH + 1))
-              fi
-              CLET_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            # Stable phase: version is MAJOR.MINOR.PATCH, auto-increment patch
+            LATEST_TAG=$(git tag --list "v${MAJOR}.${MINOR}.*" --sort=-v:refname | grep -v '-' | head -1)
+            if [ -n "$LATEST_TAG" ]; then
+              LATEST_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
+              PATCH=$((LATEST_PATCH + 1))
             fi
+            CLET_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           fi
 
           echo "clet_version=$CLET_VERSION" >> "$GITHUB_OUTPUT"
@@ -184,6 +159,109 @@ jobs:
           echo "- TG version: \`$TG_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- TGE version: \`$TGE_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- channel: \`$CHANNEL\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate TG/TGE compatibility
+        shell: bash
+        env:
+          TG_VERSION: ${{ steps.version.outputs.tg_version }}
+          TGE_VERSION: ${{ steps.version.outputs.tge_version }}
+        run: |
+          # Query NuGet catalog for Terminal.Gui.Editor's minimum Terminal.Gui dependency.
+          # If our resolved TG version is lower than what TGE requires, fail early with a clear message.
+          TGE_LOWER=$(echo "$TGE_VERSION" | tr '[:upper:]' '[:lower:]')
+          REG_URL="https://api.nuget.org/v3/registration5-gz-semver2/terminal.gui.editor/${TGE_LOWER}.json"
+          REG_INFO=$(curl -sL --compressed "$REG_URL" 2>/dev/null || true)
+
+          if [ -z "$REG_INFO" ]; then
+            echo "::warning::Could not fetch NuGet registration for Terminal.Gui.Editor ${TGE_VERSION}; skipping compat check."
+            exit 0
+          fi
+
+          # The registration response has catalogEntry as a URL; fetch the full catalog entry.
+          CATALOG_URL=$(echo "$REG_INFO" | python3 -c "
+          import json, sys
+          try:
+              data = json.load(sys.stdin)
+              entry = data.get('catalogEntry', '')
+              if isinstance(entry, str) and entry.startswith('http'):
+                  print(entry)
+              elif isinstance(entry, dict):
+                  # Sometimes inline
+                  import json as j
+                  print('INLINE')
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+
+          if [ "$CATALOG_URL" = "INLINE" ]; then
+            CATALOG_INFO="$REG_INFO"
+          elif [ -n "$CATALOG_URL" ]; then
+            CATALOG_INFO=$(curl -sL --compressed "$CATALOG_URL" 2>/dev/null || true)
+          else
+            echo "::warning::Could not resolve catalog entry for Terminal.Gui.Editor ${TGE_VERSION}; skipping compat check."
+            exit 0
+          fi
+
+          # Extract minimum Terminal.Gui version from dependency groups.
+          MIN_TG=$(echo "$CATALOG_INFO" | python3 -c "
+          import json, sys, re
+          try:
+              data = json.load(sys.stdin)
+              # Catalog entry has dependencyGroups at top level or under catalogEntry
+              groups = data.get('dependencyGroups', [])
+              if not groups:
+                  groups = data.get('catalogEntry', {}).get('dependencyGroups', [])
+              for group in groups:
+                  for dep in group.get('dependencies', []):
+                      dep_id = dep.get('id', '') or dep.get('@id', '')
+                      if dep_id.lower() == 'terminal.gui':
+                          range_str = dep.get('range', '')
+                          # NuGet range format: [2.4.0, ) means >= 2.4.0
+                          m = re.search(r'[\[(\s]?(\d+\.\d+\.\d+[^\s,\])*)', range_str)
+                          if m:
+                              print(m.group(1))
+                              sys.exit(0)
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+
+          if [ -z "$MIN_TG" ]; then
+            echo "::warning::Could not determine Terminal.Gui.Editor's TG dependency; skipping compat check."
+            exit 0
+          fi
+
+          echo "Terminal.Gui.Editor ${TGE_VERSION} requires Terminal.Gui >= ${MIN_TG}"
+          echo "Resolved Terminal.Gui version: ${TG_VERSION}"
+
+          # Compare versions: fail if TG_VERSION < MIN_TG
+          # Uses python3 for correct SemVer/NuGet prerelease ordering
+          # (sort -V treats 2.4.0-preview.1 > 2.4.0, but SemVer/NuGet does not)
+          COMPAT=$(python3 -c "
+          import re, sys
+          def parse_ver(v):
+              m = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$', v)
+              if not m:
+                  sys.exit('Invalid version: ' + v)
+              major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+              pre = m.group(4)  # None if no prerelease
+              return (major, minor, patch, pre)
+          def ver_key(v):
+              major, minor, patch, pre = parse_ver(v)
+              # No prerelease => higher than any prerelease of same base
+              if pre is None:
+                  return (major, minor, patch, 1, '')
+              else:
+                  return (major, minor, patch, 0, pre)
+          tg = ver_key('$TG_VERSION')
+          min_tg = ver_key('$MIN_TG')
+          print('compatible' if tg >= min_tg else 'incompatible')
+          ")
+          if [ "$COMPAT" = "incompatible" ]; then
+            echo "::error::Version conflict: Terminal.Gui.Editor ${TGE_VERSION} requires Terminal.Gui >= ${MIN_TG}, but resolved TG version is ${TG_VERSION}. Update TerminalGuiVersion in Directory.Build.props or pass a compatible tg_version in the dispatch payload."
+            exit 2
+          fi
+
+          echo "✓ TG/TGE versions are compatible."
 
   build:
     needs: resolve-version
@@ -251,7 +329,7 @@ jobs:
           retention-days: 30
 
   # Tag every successful build so future runs can find the latest build number.
-  # Tags: v1.0.0-alpha.3, v1.0.0 (stable)
+  # Tags: v1.0.0-rc.3, v1.0.0 (stable)
   tag:
     needs: [resolve-version, build]
     runs-on: ubuntu-latest
@@ -427,14 +505,34 @@ jobs:
       TG_VERSION: ${{ needs.resolve-version.outputs.tg_version }}
       CHANNEL: ${{ needs.resolve-version.outputs.channel }}
     steps:
-      - name: Create failure issue
+      - name: Create or update failure issue
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.issues.create({
+            const issueTitle = `Release clet v${process.env.CLET_VERSION} failed (${process.env.CHANNEL})`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const issueBody = `The ${process.env.CHANNEL} release workflow for clet \`${process.env.CLET_VERSION}\` (TG \`${process.env.TG_VERSION}\`) failed.\n\nSee [workflow run](${runUrl}) for details.\n\nRefer to \`docs/runbooks/release-rollback.md\` for rollback procedures.`;
+            const labels = [`incident:${process.env.CHANNEL}`];
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Release clet v${process.env.CLET_VERSION} failed (${process.env.CHANNEL})`,
-              body: `The ${process.env.CHANNEL} release workflow for clet \`${process.env.CLET_VERSION}\` (TG \`${process.env.TG_VERSION}\`) failed.\n\nSee [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.\n\nRefer to \`docs/runbooks/release-rollback.md\` for rollback procedures.`,
-              labels: [`incident:${process.env.CHANNEL}`]
+              state: 'open',
+              labels: labels.join(',')
             });
+            const existingIssue = issues.find(issue => !issue.pull_request && issue.title === issueTitle);
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Release workflow failed again for \`${process.env.CLET_VERSION}\`.\n\nSee [workflow run](${runUrl}) for details.`
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels
+              });
+            }

@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class MultiSelectCletTests
@@ -17,7 +19,7 @@ public class MultiSelectCletTests
     {
         MultiSelectClet clet = new ();
 
-        Assert.Equal (CletKind.Input, clet.Kind);
+        Assert.Equal (CommandKind.Input, clet.Kind);
     }
 
     [Fact]

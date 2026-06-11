@@ -56,7 +56,21 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 - Initial-value rejection with invalid input.
 - (Where applicable) options: `--root`, `--filter`, `--multi`, etc., each tested in isolation.
 
-**Patterns:** xUnit v3, `[Fact]` and `[Theory]`. No `Application.Init`. No threading.
+**Patterns:** xUnit v3, `[Fact]` and `[Theory]`. No `Application.Init`. No threading. A module initializer sets `DisableRealDriverIO=1` and replaces `Console.In` with `TextReader.Null` so runners that keep stdin redirected but open (for example ReSharper test sessions) cannot wedge stdin-reading code paths.
+
+### 2.1b Configuration tests (`Clet.ConfigTests`)
+
+**What this catches:** Races and ordering bugs in `ConfigurationManager` (CM) state — a process-global singleton with one-time `[ConfigurationProperty]` discovery. CM tests that run in a parallel assembly can observe different discovery outcomes depending on which collection enables CM first.
+
+**Why a separate project:** `DisableParallelization = true` on a collection only stops intra-/cross-collection concurrency *within* one assembly — it doesn't prevent a *different* parallel collection in the same assembly from enabling CM before the configuration tests run. The only robust isolation (used by Terminal.Gui itself and the sibling `gui-cs/Editor` repo) is a separate assembly with `parallelizeAssembly: false` and `parallelizeTestCollections: false` in `xunit.runner.json`.
+
+**Cases:**
+- `EditorSettings`: ManagedKeys completeness, CM discovery, Save round-trips (JSONC comments, existing keys, default template, key updates), CM Load/Apply restores values.
+- `FileAccessSettings`: AllowedPaths CM discovery, MergeWithConfigPaths logic, AddToConfig persistence, FileAccessPolicy integration.
+
+**Canonical CM test pattern:** Each test defensively resets CM (`if (IsEnabled) Disable(true)`), sets `ThrowOnJsonErrors = true`, uses `RuntimeConfig` for in-memory config injection (never file-based `AppHome`), and resets via `Disable(resetToHardCodedDefaults: true)` in `finally`/`Dispose`.
+
+**Patterns:** xUnit v3, `[Fact]` and `[Theory]`. No `Application.Init`. No threading. Full assembly serialization via `xunit.runner.json`. A module initializer sets `DisableRealDriverIO=1` before any test code can touch Terminal.Gui and replaces `Console.In` with `TextReader.Null` so redirected-but-open runner stdin cannot block tests.
 
 ### 2.2 Integration tests (`Clet.IntegrationTests`)
 
@@ -69,7 +83,7 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 - Theme override per invocation; verify the View's effective scheme name.
 - Inline vs alt-screen mode; verify driver state transitions.
 
-**Patterns:** `Application.Create()` per test (isolation), `app.Init("ansi")`. Tests are synchronous after `await clet.RunAsync(...)` returns. No `InputInjection` here — keystrokes are §2.3's territory.
+**Patterns:** `Application.Create()` per test (isolation), `app.Init("ansi")`. Tests are synchronous after `await clet.RunAsync(...)` returns. No `InputInjection` here — keystrokes are §2.3's territory. A module initializer sets `DisableRealDriverIO=1` before any test code can touch Terminal.Gui and replaces `Console.In` with `TextReader.Null` so redirected-but-open runner stdin cannot block tests.
 
 ### 2.3 UI snapshot tests (`Clet.UITests`)
 
@@ -79,7 +93,7 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 
 **Source of truth.** Snapshots come from `app.Driver.Contents` (the `Cell[,]` grid). Note: `Contents` is pre-clipping — a View that draws outside its bounds shows up here even though it would be clipped before reaching a real terminal. For clet's clets this is acceptable; clipping rarely matters and tests that specifically need post-clipping behavior can fall back to `Driver.GetOutput().GetLastOutput()` for the rare cases. Default to `Contents`.
 
-**Test harness:** `tests/Clet.UITests/CletUIHarness.cs` (sketched in §3.2 of this doc). Builds an `IApplication` with the `ansi` driver, locks screen size, runs the clet on a `Task` that the test thread cooperates with via the `Iteration` event — no background loop, no semaphores, no wall-clock waits. The test thread owns the clock; every `harness.Press(Key.X)` advances the loop one iteration deterministically.
+**Test harness:** `tests/Clet.UITests/CletUiHarness.cs` (sketched in §3.2 of this doc). Builds an `IApplication` with the `ansi` driver, locks screen size, runs the clet on a `Task` that the test thread cooperates with via the `Iteration` event — no background loop, no semaphores, no wall-clock waits. The test thread owns the clock; every `harness.Press(Key.X)` advances the loop one iteration deterministically.
 
 **Three assertion styles**, picked by what the test cares about:
 - **Substring:** `Assert.Contains("Pick one", harness.SnapshotText())`. Most resilient to layout tweaks. Use when "this text is on screen" is the contract.
@@ -97,11 +111,13 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 
 **Boundary against §2.2 integration tests:** §2.2 stays pure-state. §2.3 is rendered-output. A test that asserts on both `harness.SnapshotText()` and `result.Value` belongs in §2.3, not §2.2 — the snapshot capture is what defines the layer.
 
-**Patterns:** xUnit v3. `using var harness = await CletUIHarness.StartAsync(...)` per test. No `Application.Init` outside the harness. No threading outside the cooperative `Iteration` step. Frame-stepping discipline: every input event is followed by a render tick before the next assertion.
+**Patterns:** xUnit v3. `using var harness = await CletUiHarness.StartAsync(...)` per test. No `Application.Init` outside the harness. No threading outside the cooperative `Iteration` step. Frame-stepping discipline: every input event is followed by a render tick before the next assertion. A module initializer sets `DisableRealDriverIO=1` before any test code can touch Terminal.Gui and replaces `Console.In` with `TextReader.Null` so redirected-but-open runner stdin cannot block tests.
 
 ### 2.4 Process / smoke tests (`Clet.SmokeTests`)
 
 **What this catches:** Bugs that only appear when `clet` runs as a real process — argument parsing, stdout/stderr wiring, exit codes, signal handling, AOT-vs-JIT divergence.
+
+**Parallelization:** Disabled at the assembly level. Process-level cases share the test-copied `clet` output and must not race multiple child processes over the same output artifacts. A module initializer sets `DisableRealDriverIO=1` and `Console.In = TextReader.Null` in the smoke-test host, and `CletProcess` passes `DisableRealDriverIO` to spawned `clet` children. Child stdin is still explicitly redirected only for smoke cases that pass `stdin`.
 
 **Cases:** Identical to the release-pipeline smoke matrix in [`specs/clet-spec.md` §5.3](../specs/clet-spec.md#53-smoke-test-gate-p0-release-fails-closed) (every clet boots, returns valid JSON, exits with the correct code). Run on every PR to `gui-cs/clet`, every TG-triggered release build, and nightly against the latest TG develop branch.
 
@@ -179,51 +195,46 @@ Run before every minor release (v1.0, v1.1, ...). Captured in a release checklis
 
 ### 3.2 §2.3 UI harness shape
 
-The `CletUIHarness` lives in `tests/Clet.UITests/CletUIHarness.cs`. Sketched API (the actual implementation lands in a follow-up PR):
+The `CletUiHarness` lives in `tests/Clet.UITests/CletUiHarness.cs`. Sketched API (the actual implementation lands in a follow-up PR):
 
 ```csharp
-public sealed class CletUIHarness : IAsyncDisposable
+public sealed class CletUiHarness : IAsyncDisposable
 {
-    public static Task<CletUIHarness> StartAsync<T>(
+    public static Task<CletUiHarness> StartAsync<T>(
         IClet<T> clet, string? initial, CletRunOptions options,
         int width = 60, int height = 10);
 
-    // Snapshots — backed by app.Driver.Contents
+    // Snapshots — captured from the initial render
     public string SnapshotText();          // glyphs only
-    public string SnapshotAnsi();          // glyphs + ANSI styling
+    public string SnapshotAnsi();          // glyphs + ANSI styling via IDriver.ToAnsi()
     public Cell[,] SnapshotCells();        // full structured grid
 
     // Assertions
     public void AssertCellsAt(int row, int col, string expected);
     public void AssertMatchesGolden(string fileName); // CLET_REGEN_GOLDENS=1 rewrites
-
-    // Input — each call advances one iteration before returning
-    public void Press(Key key);
-    public void Click(int x, int y);
+    public void AssertMatchesAnsiGolden(string fileName); // CLET_REGEN_GOLDENS=1 rewrites .ans goldens
 
     // Lifecycle — completes when the clet's RunAsync returns
     public Task<CletRunResult<T>> GetResultAsync();
 }
 ```
 
-**Frame-stepping discipline.** Every input call (`Press`, `Click`) implicitly does:
-1. Inject the event via `app.InjectKey` / `app.InjectMouse`.
-2. Raise one `Iteration` to let the event propagate and the View redraw.
-3. Return — the snapshot captured next is post-input, post-redraw.
+**Initial-render discipline.** The harness captures snapshots from `Iteration` while the clet is
+running, then requests stop after the initial layout/draw sequence settles.
 
-No background task. No semaphores. No `Task.Delay`. The test thread owns the clock. This is the explicit non-fragility design choice relative to TG's `AppTestHelper`.
+No background task. No semaphores. No `Task.Delay`. The test thread owns the clock. Initial rendering tests capture a few `Iteration` frames and then request stop, so ANSI goldens are deterministic and can be inspected with `cat tests/Clet.UITests/Goldens/<name>.ans`.
 
-**FileDialog notes.** `pick-file` and `pick-directory` are the trickiest cases — they enumerate mount points, do async file-system work, and post layout changes that span multiple iterations. Frame-stepping should still work; a single `Press` may need to advance several iterations before the dialog settles. The harness exposes a `WaitFor(Func<IApplication, bool>)` overload that pumps iterations until the predicate is true (with a hard cap, fails loudly on timeout). Use sparingly; prefer a known iteration count when the View's iteration shape is deterministic.
+**FileDialog notes.** `pick-file` and `pick-directory` are the trickiest cases — they enumerate mount points, do async file-system work, and post layout changes that span multiple iterations. Their render tests use temporary roots with stable timestamps so the ANSI goldens do not churn.
 
 ### 3.3 Goldens
 
-- Plain text under `tests/Clet.UITests/Goldens/<test-name>.txt`. ANSI variants under `<test-name>.ansi` for color/scheme tests.
-- Regenerated by `CLET_REGEN_GOLDENS=1 dotnet test`. With the env var set, mismatches rewrite the file *and* fail the run — so a regen requires a deliberate second run to confirm the new golden is what the author intended.
+- Plain text under `tests/Clet.UITests/Goldens/<test-name>.txt`. ANSI variants under `<test-name>.ans` for color/scheme tests.
+- Regenerated by `CLET_REGEN_GOLDENS=1 dotnet run --project tests/Clet.UITests`. With the env var set, mismatches rewrite the file *and* fail the run — so a regen requires a deliberate second run to confirm the new golden is what the author intended.
 - Reviewed in PR diffs. If a golden churns on every layout PR, it's the wrong assertion shape — switch to substring or cell-region.
 
-### 3.4 Source of `Driver.Contents` vs `IOutput.GetLastOutput()`
+### 3.4 Source of `Driver.Contents` vs `IDriver.ToAnsi()`
 
-`Contents` is pre-clipping. `IOutput.GetLastOutput()` is post-clipping (what would actually hit the terminal). For clet's UI tests, default to `Contents` — clipping rarely matters and `Contents` is simpler. The few tests that specifically need post-clipping behavior can construct their own assertion against `app.Driver.GetOutput().GetLastOutput()`. We don't expose that path on the default `CletUIHarness` API to avoid encouraging it.
+`Contents` is useful for glyph-only assertions. `IDriver.ToAnsi()` is the preferred source for rendering goldens because it preserves layout plus colors/styles in a `cat`-able stream.
 
 ### 3.5 Cross-references
 

@@ -11,5 +11,6 @@ internal static class TestSetup
     internal static void Init ()
     {
         Environment.SetEnvironmentVariable ("DisableRealDriverIO", "1");
+        Console.SetIn (TextReader.Null);
     }
 }

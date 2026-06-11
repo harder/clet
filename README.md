@@ -14,7 +14,7 @@ Works for humans and AI agents alike.
 | `text`, `multiline-text`, `mt` | Prompts for multi-line text input using an editor and returns the entered string. | |
 | `int` | Prompts for an integer value using a numeric spinner. | `--step` |
 | `decimal` | Prompts for a decimal value using a numeric spinner. | `--step` |
-| `confirm` | Prompts for a yes/no confirmation and returns a boolean. | `--prompt` |
+| `confirm` | Prompts for a yes/no confirmation and returns a boolean. | |
 | `date` | Prompts for a date and returns an ISO-8601 date string (YYYY-MM-DD). | |
 | `time` | Prompts for a time and returns an ISO-8601 time string (HH:MM:SS). | |
 | `duration` | Prompts for a duration and returns an ISO-8601 duration string (e.g. PT1H30M). | |
@@ -96,8 +96,8 @@ clet edit ./notes.txt
 # Open the configuration editor (theming, keybindings, etc.)
 clet config
 
-# See all available clets
-clet list
+# See available commands (TUI help viewer)
+clet help
 ```
 
 ### AI agent usage (`--json`)
@@ -115,9 +115,9 @@ clet pick-file --json --root ./src --timeout 30s
 clet confirm --json "Apply this patch?"
 # → {"schemaVersion":1,"status":"cancelled"}   (exit 130)
 
-# Discover available clets once per session
-clet list --json
-# → {"schemaVersion":1,"clets":[{"alias":"select","kind":"input","resultType":"string",...},...]}
+# Discover available commands (machine-readable manifest)
+clet --opencli
+# → {"name":"clet","version":"...","commands":[{"alias":"select","kind":"input","resultType":"string",...},...]}
 ```
 
 Exit codes: 
@@ -126,15 +126,26 @@ Exit codes:
 - `2` usage error
 - `130` cancelled (SIGINT convention).
 
-### Demo
+### Demos
 
-![demo](./docs/images/demo.gif)
+**`clet help`**
 
-## Alpha feedback
+![clet help](./docs/images/clet-help.gif)
 
-clet is in **friends-and-family alpha** ([milestone tracker](https://github.com/gui-cs/clet/issues/33)). If something doesn't work, looks wrong, or is just confusing, **[file an issue](https://github.com/gui-cs/clet/issues/new)**. Include:
+**`clet pick-file`**
 
-- `clet --version` output (e.g. `1.0.0-alpha (Terminal.Gui 2.0.2-develop.37)`).
+![clet pick-file](./docs/images/clet-pick-file.gif)
+
+**`clet color`**
+
+![clet color](./docs/images/clet-color.gif)
+
+
+## RC feedback
+
+clet is in **release candidate** status ([milestone tracker](https://github.com/gui-cs/clet/issues/33)). If something doesn't work, looks wrong, or is just confusing, **[file an issue](https://github.com/gui-cs/clet/issues/new)**. Include:
+
+- `clet --version` output (e.g. `1.0.0-rc.3 (Terminal.Gui 2.0.2-develop.37)`).
 - Your terminal + OS (e.g. "Windows Terminal on Windows 11", "iTerm2 on macOS 15").
 - What you ran, what you expected, what happened.
 
@@ -213,6 +224,10 @@ Or, you can pick from a built-in Terminal.Gui Theme. This example picks the `And
 
 <img width="576" height="131" alt="image" src="https://github.com/user-attachments/assets/df36bca2-25b5-4904-af51-5a9de9e9be35" />
 
+Here's `clet color` with the Anders theme applied:
+
+![clet color with Anders theme](./docs/images/clet-color.gif)
+
 All clets render with the `Base` color scheme, so customizing `Base` controls every clet's appearance. See the [Terminal.Gui Configuration docs](https://gui-cs.github.io/Terminal.Gui/docs/configuration.html) for the full schema.
 
 ### Q: Key bindings?
@@ -237,11 +252,11 @@ This changes the quit/dismiss key for all clets. `clet md` shows the active quit
 
 ### Q: What's the `--prerelease` channel?
 
-Releases from `main` publish prerelease packages to NuGet (versioned `1.x.y-alpha.N` during alpha, then `-beta.N`, `-rc.N`). Stable users see no churn — `dotnet tool install -g clet` still resolves to the latest non-prerelease, and `brew`/`winget` only ship stable main releases. If you want the bleeding edge, pass `--prerelease`.
+Releases from `main` publish prerelease packages to NuGet (versioned `1.x.y-rc.N` during the RC phase). Stable users see no churn — `dotnet tool install -g clet` still resolves to the latest non-prerelease, and `brew`/`winget` only ship stable main releases. If you want the bleeding edge, pass `--prerelease`.
 
-### Q: How do I report a bug or give feedback during alpha?
+### Q: How do I report a bug or give feedback?
 
-[File an issue](https://github.com/gui-cs/clet/issues/new). That's the only feedback channel — no Discussions, no forum. See the [Alpha feedback](#alpha-feedback) section above for what to include.
+[File an issue](https://github.com/gui-cs/clet/issues/new). That's the only feedback channel — no Discussions, no forum. See the [RC feedback](#rc-feedback) section above for what to include.
 
 ## Native binaries install
 

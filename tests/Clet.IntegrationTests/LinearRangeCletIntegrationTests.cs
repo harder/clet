@@ -1,6 +1,8 @@
 using Terminal.Gui.App;
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.IntegrationTests;
 
 public class LinearRangeCletIntegrationTests
@@ -12,18 +14,18 @@ public class LinearRangeCletIntegrationTests
         app.Init ("ansi");
 
         LinearRangeClet clet = new ();
-        CletRunOptions options = new ()
+        CommandRunOptions options = new ()
         {
-            CletOptions = new Dictionary<string, string> { ["options"] = "A,B,C,D" },
+            CommandOptions = new Dictionary<string, string> { ["options"] = "A,B,C,D" },
         };
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
-        CletRunResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
+        CommandResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
             app, null, options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Cancelled, result.Status);
+        Assert.Equal (CommandStatus.Cancelled, result.Status);
         Assert.Null (result.Value);
     }
 
@@ -35,9 +37,9 @@ public class LinearRangeCletIntegrationTests
         app.StopAfterFirstIteration = true;
 
         LinearRangeClet clet = new ();
-        CletRunOptions options = new ()
+        CommandRunOptions options = new ()
         {
-            CletOptions = new Dictionary<string, string>
+            CommandOptions = new Dictionary<string, string>
             {
                 ["options"] = "10,20,30,40,50",
                 ["mode"] = "single",
@@ -46,10 +48,10 @@ public class LinearRangeCletIntegrationTests
 
         using CancellationTokenSource cts = new ();
 
-        CletRunResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
+        CommandResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
             app, null, options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Ok, result.Status);
+        Assert.Equal (CommandStatus.Ok, result.Status);
     }
 
     [Fact]
@@ -60,9 +62,9 @@ public class LinearRangeCletIntegrationTests
         app.StopAfterFirstIteration = true;
 
         LinearRangeClet clet = new ();
-        CletRunOptions options = new ()
+        CommandRunOptions options = new ()
         {
-            CletOptions = new Dictionary<string, string>
+            CommandOptions = new Dictionary<string, string>
             {
                 ["options"] = "S,M,L,XL",
                 ["mode"] = "range",
@@ -72,9 +74,10 @@ public class LinearRangeCletIntegrationTests
 
         using CancellationTokenSource cts = new ();
 
-        CletRunResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
+        CommandResult<System.Text.Json.Nodes.JsonObject?> result = await clet.RunAsync (
             app, "S..L", options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Ok, result.Status);
+        Assert.Equal (CommandStatus.Ok, result.Status);
     }
 }
+

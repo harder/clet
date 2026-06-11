@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
@@ -26,6 +25,9 @@ internal static class EditorSettings
     [ConfigurationProperty (Scope = typeof (SettingsScope))]
     public static bool ShowTabs { get; set; }
 
+    [ConfigurationProperty (Scope = typeof (SettingsScope))]
+    public static bool Scrollbars { get; set; } = true;
+
     // --- Tab settings ---
 
     [ConfigurationProperty (Scope = typeof (SettingsScope))]
@@ -37,18 +39,23 @@ internal static class EditorSettings
     [ConfigurationProperty (Scope = typeof (SettingsScope))]
     public static bool AutoIndent { get; set; }
 
+    [ConfigurationProperty (Scope = typeof (SettingsScope))]
+    public static bool AutoComplete { get; set; }
+
     /// <summary>
     /// All keys managed by this class. Used for selective persistence.
     /// </summary>
-    private static readonly string[] _keys =
+    private static readonly string[] Keys =
     [
         "EditorSettings.LineNumbers",
         "EditorSettings.FoldIndicators",
         "EditorSettings.WordWrap",
         "EditorSettings.ShowTabs",
+        "EditorSettings.Scrollbars",
         "EditorSettings.IndentSize",
         "EditorSettings.ConvertTabsToSpaces",
         "EditorSettings.AutoIndent",
+        "EditorSettings.AutoComplete",
     ];
 
     /// <summary>
@@ -78,9 +85,11 @@ internal static class EditorSettings
                 ["EditorSettings.FoldIndicators"] = ToJson (FoldIndicators),
                 ["EditorSettings.WordWrap"] = ToJson (WordWrap),
                 ["EditorSettings.ShowTabs"] = ToJson (ShowTabs),
+                ["EditorSettings.Scrollbars"] = ToJson (Scrollbars),
                 ["EditorSettings.IndentSize"] = IndentSize.ToString (),
                 ["EditorSettings.ConvertTabsToSpaces"] = ToJson (ConvertTabsToSpaces),
                 ["EditorSettings.AutoIndent"] = ToJson (AutoIndent),
+                ["EditorSettings.AutoComplete"] = ToJson (AutoComplete),
             };
 
             List<string> toInsert = [];
@@ -145,7 +154,7 @@ internal static class EditorSettings
     /// <summary>
     /// Returns the keys managed by this class. Useful for testing.
     /// </summary>
-    internal static IReadOnlyList<string> ManagedKeys => _keys;
+    internal static IReadOnlyList<string> ManagedKeys => Keys;
 
     /// <summary>Converts a boolean to its JSON literal.</summary>
     private static string ToJson (bool value) => value ? "true" : "false";

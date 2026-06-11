@@ -172,9 +172,9 @@ Revisit when download numbers show users hitting Gatekeeper/SmartScreen friction
 
 ## D-014: `--title` is a built-in CLI flag, not a per-clet option (Active)
 
-**Context.** Every input clet renders its `RunnableWrapper`/`OpenDialog` with a `Title` and falls back to a per-clet default ("Select an option…", "Enter a number…", etc.). All 14 clets honor `CletRunOptions.Title` if set. The CLI parser, however, had no way to populate it — `--title` was being routed into the per-clet `--<opt>` bucket where most clets ignored it.
+**Context.** Every input clet renders its `RunnableWrapper`/`OpenDialog` with a `Title` and falls back to a per-clet default ("Select an option…", "Enter a number…", etc.). All 14 clets honor `CletRunOptions.Title` if set. The CLI parser, however, had no way to populate it — `--title` was being routed into the per-clet `--<opt>` bucket where most clets ignored it. Additionally, `ConfirmClet` had a per-clet `--prompt` option that overrode `--title`, making the two flags behave inconsistently across clets.
 
-**Decision.** `--title <text>` is parsed at the host level (`CommandLineRoot.DispatchAlias`) alongside `--initial`, `--json`, `--timeout`, `--fullscreen`, and stored as `CletRunOptions.Title`. Individual clets do **not** declare `title` in their `Options` list — adding it 14 times would be churn and the per-clet help would falsely imply each clet handles it differently.
+**Decision.** `--title <text>` (and its alias `--prompt <text>`) is parsed at the host level (`CommandLineRoot.DispatchAlias`) alongside `--initial`, `--json`, `--timeout`, `--fullscreen`, and stored as `CletRunOptions.Title`. `--prompt` / `-p` is a synonym for `--title` / `-t` — both set the same value. Individual clets do **not** declare `title` or `prompt` in their `Options` list — adding it 14 times would be churn and the per-clet help would falsely imply each clet handles it differently.
 
 **Status.** Active. Listed in root help (§4.7).
 
@@ -401,7 +401,7 @@ Both channels tag every build (needed for auto-increment). Both publish to NuGet
 
 **Context.** Terminal.Gui renders to stdout. Any form of stdout redirection (`$()`, `|`, `>`) hides the TUI — the user sees nothing (gui-cs/Terminal.Gui#5207). Until TG supports rendering to `/dev/tty` when stdout is redirected, clet needs a workaround to let scripts capture the result while keeping the TUI visible.
 
-**Decision.** Add `--output <path>` / `-o <path>` as a built-in CLI flag. When set, `OutputFormatter` writes the result (plain text or JSON) to the specified file path instead of stdout. stdout remains fully available for TUI rendering. If the file cannot be written, an error is emitted to stderr and the process exits with code 2 (usage error).
+**Decision.** Add `--output <path>` / `-o <path>` as a built-in CLI flag. When set, `OutputFormatter` writes successful results (plain text or JSON) to the specified file path instead of stdout. The file is created with non-overwriting semantics; existing paths are refused rather than truncated. Non-success results are not written to the output file and are emitted through the normal stdout/stderr paths. stdout remains fully available for TUI rendering. If the file cannot be written, an error is emitted to stderr and the process exits with code 2 (usage error).
 
 **Rationale.** This is a minimal, composable workaround: the user picks the file path, the result goes there, and stdout stays for TUI. It works equally well in bash (`clet select --json --output /tmp/r.json`) and PowerShell. The flag is host-level (not clet-specific) because it controls where the *result* goes, not how the clet behaves.
 
@@ -438,7 +438,7 @@ This is clet's own defense. TG's cell model is treated as defense-in-depth, not 
 
 **Status.** Active.
 
-**Pointers.** `src/Clet/Hosting/TerminalEscapeSanitizer.cs`, `src/Clet/Clets/Viewer/MarkdownClet.cs`, `src/Clet/Hosting/MarkdownHelpRenderer.cs`, `docs/threat-model.md` ("Terminal escape sanitization" section), `specs/clet-spec.md` Appendix A, issue #38.
+**Pointers.** `src/Clet/Hosting/TerminalEscapeSanitizer.cs`, `src/Clet/Clets/Viewer/MarkdownClet.cs`, `src/Clet/Hosting/MarkdownHelpRenderer.cs`, `docs/threat-model.md` ("Terminal escape sanitization" section), `specs/clet-spec.md` Appendix A, issue #92.
 
 ---
 
@@ -474,7 +474,7 @@ Additional options: `--orientation horizontal|vertical`, `--range-kind closed|le
 
 ## D-033: `clet md` file-access confinement policy (Active)
 
-**Context.** `clet md FILE` is an arbitrary file-read primitive. In agent contexts, positional arguments may be attacker-influenced via indirect prompt injection. An attacker could instruct an agent to run `clet md /home/$USER/.aws/credentials`, exfiltrating file content through the rendered ANSI output or `--cat` stdout. Glob patterns (`clet md '/etc/*.conf'`) amplify this to directory enumeration. Issue #38 documents the full threat surface.
+**Context.** `clet md FILE` is an arbitrary file-read primitive. In agent contexts, positional arguments may be attacker-influenced via indirect prompt injection. An attacker could instruct an agent to run `clet md /home/$USER/.aws/credentials`, exfiltrating file content through the rendered ANSI output or `--cat` stdout. Glob patterns (`clet md '/etc/*.conf'`) amplify this to directory enumeration. Issue #93 documents the full threat surface.
 
 **Decision.** Default-deny file access policy with explicit opt-in escape hatches:
 1. **Extension allowlist:** `.md`, `.markdown`, `.txt` only.
@@ -492,7 +492,7 @@ For `pick-file`/`pick-directory`, `--root` remains a starting directory, not a s
 
 **Status.** Active.
 
-**Pointers.** `src/Clet/Hosting/FileAccessPolicy.cs`, `src/Clet/Hosting/AliasDispatcher.cs` (`ResolveViewerContent`), `src/Clet/Clets/Viewer/MarkdownClet.cs` (`ExpandFiles`), `src/Clet/Hosting/CommandLineRoot.cs` (`--allow-file`, `--allow-binary` parsing), `docs/threat-model.md` ("File access scope" section), issue #38.
+**Pointers.** `src/Clet/Hosting/FileAccessPolicy.cs`, `src/Clet/Hosting/AliasDispatcher.cs` (`ResolveViewerContent`), `src/Clet/Clets/Viewer/MarkdownClet.cs` (`ExpandFiles`), `src/Clet/Hosting/CommandLineRoot.cs` (`--allow-file`, `--allow-binary` parsing), `docs/threat-model.md` ("File access scope" section), issue #93.
 
 ## D-034: Explicit `TextMateSharp` PackageReference to repair publish output (Active)
 

@@ -1,6 +1,8 @@
 using Terminal.Gui.App;
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.IntegrationTests;
 
 public class DurationCletIntegrationTests
@@ -12,14 +14,14 @@ public class DurationCletIntegrationTests
         app.Init ("ansi");
 
         DurationClet clet = new ();
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
-        cts.Cancel ();
+        await cts.CancelAsync ();
 
-        CletRunResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
+        CommandResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Cancelled, result.Status);
+        Assert.Equal (CommandStatus.Cancelled, result.Status);
         Assert.Null (result.Value);
     }
 
@@ -31,13 +33,13 @@ public class DurationCletIntegrationTests
         app.StopAfterFirstIteration = true;
 
         DurationClet clet = new ();
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
 
-        CletRunResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
+        CommandResult<string?> result = await clet.RunAsync (app, null, options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Ok, result.Status);
+        Assert.Equal (CommandStatus.Ok, result.Status);
     }
 
     [Fact]
@@ -48,12 +50,13 @@ public class DurationCletIntegrationTests
         app.StopAfterFirstIteration = true;
 
         DurationClet clet = new ();
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
         using CancellationTokenSource cts = new ();
 
-        CletRunResult<string?> result = await clet.RunAsync (app, "PT1H30M", options, cts.Token);
+        CommandResult<string?> result = await clet.RunAsync (app, "PT1H30M", options, cts.Token);
 
-        Assert.Equal (CletRunStatus.Ok, result.Status);
+        Assert.Equal (CommandStatus.Ok, result.Status);
     }
 }
+

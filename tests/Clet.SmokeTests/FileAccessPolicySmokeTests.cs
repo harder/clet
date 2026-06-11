@@ -36,7 +36,7 @@ public class FileAccessPolicySmokeTests
         string baseTempFile = Path.GetTempFileName ();
         string tmpFile = Path.ChangeExtension (baseTempFile, ".conf");
         File.Move (baseTempFile, tmpFile);
-        File.WriteAllText (tmpFile, "# test config content");
+        await File.WriteAllTextAsync (tmpFile, "# test config content", TestContext.Current.CancellationToken);
 
         try
         {
@@ -76,11 +76,11 @@ public class FileAccessPolicySmokeTests
         string tmpDir = Path.Join (Path.GetTempPath (), $"clet-test-{Guid.NewGuid ()}");
         Directory.CreateDirectory (tmpDir);
         string mdFile = Path.Combine (tmpDir, "test.md");
-        File.WriteAllText (mdFile, "# Hello World");
+        await File.WriteAllTextAsync (mdFile, "# Hello World", TestContext.Current.CancellationToken);
 
         try
         {
-            (int exit, _, string stderr) = await CletProcess.RunAsync (
+            (int exit, _, _) = await CletProcess.RunAsync (
                 ["md", "--cat", mdFile, "--allow-file", mdFile]);
 
             // With --allow-file, should succeed even though it may be outside the process cwd
@@ -96,8 +96,8 @@ public class FileAccessPolicySmokeTests
     public async Task MdBinaryFile_IsRefused ()
     {
         string tmpFile = Path.Combine (Path.GetTempPath (), $"clet-test-{Guid.NewGuid ()}.md");
-        byte[] content = [0x23, 0x20, 0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]; // "# Hel\0lo"
-        File.WriteAllBytes (tmpFile, content);
+        byte[] content = "# Hel\0lo"u8.ToArray ();
+        await File.WriteAllBytesAsync (tmpFile, content, TestContext.Current.CancellationToken);
 
         try
         {
@@ -117,8 +117,8 @@ public class FileAccessPolicySmokeTests
     public async Task MdBinaryFile_AllowedWithAllowBinary ()
     {
         string tmpFile = Path.Combine (Path.GetTempPath (), $"clet-test-{Guid.NewGuid ()}.md");
-        byte[] content = [0x23, 0x20, 0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]; // "# Hel\0lo"
-        File.WriteAllBytes (tmpFile, content);
+        byte[] content = "# Hel\0lo"u8.ToArray ();
+        await File.WriteAllBytesAsync (tmpFile, content, TestContext.Current.CancellationToken);
 
         try
         {

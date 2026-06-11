@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class MarkdownContentResolverTests
@@ -7,9 +9,9 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_InlineContent_ReturnsContent ()
     {
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
-        var result = MarkdownContentResolver.Resolve ("# Hello", options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Hello", options, stdinReader: null);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# Hello", result.Content);
@@ -19,10 +21,10 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_InlineContent_TakesPriorityOverStdin ()
     {
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
         using StringReader stdin = new ("stdin content");
 
-        var result = MarkdownContentResolver.Resolve ("# Inline", options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Inline", options, stdin);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# Inline", result.Content);
@@ -31,10 +33,10 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_Stdin_ReturnsContent ()
     {
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
         using StringReader stdin = new ("# From Stdin");
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdin);
 
         Assert.True (result.IsSuccess);
         Assert.Equal ("# From Stdin", result.Content);
@@ -44,10 +46,10 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_EmptyStdin_ReturnsError ()
     {
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
         using StringReader stdin = new ("");
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdin);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdin);
 
         Assert.False (result.IsSuccess);
         Assert.Equal ("io", result.ErrorCode);
@@ -56,9 +58,9 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_NoSource_ReturnsError ()
     {
-        CletRunOptions options = new ();
+        CommandRunOptions options = new ();
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
         Assert.False (result.IsSuccess);
         Assert.Equal ("io", result.ErrorCode);
@@ -77,9 +79,9 @@ public class MarkdownContentResolverTests
             File.WriteAllText (file, "# Test File");
 
             // Use AllowedFiles to bypass CWD confinement — avoids process-global CWD race
-            CletRunOptions options = new () { Arguments = [file], AllowedFiles = [tempDir] };
+            CommandRunOptions options = new () { Arguments = [file], Extensions = new Dictionary<string, IReadOnlyList<string>> { ["allow-file"] = [tempDir] } };
 
-            var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+            MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
             Assert.True (result.IsSuccess);
             Assert.Equal ("# Test File", result.Content);
@@ -94,9 +96,9 @@ public class MarkdownContentResolverTests
     [Fact]
     public void Resolve_FileArgs_NonexistentFile_ReturnsError ()
     {
-        CletRunOptions options = new () { Arguments = ["/nonexistent/file.md"] };
+        CommandRunOptions options = new () { Arguments = ["/nonexistent/file.md"] };
 
-        var result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
+        MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve (null, options, stdinReader: null);
 
         Assert.False (result.IsSuccess);
     }
@@ -112,9 +114,9 @@ public class MarkdownContentResolverTests
             string file = Path.Combine (tempDir, "priority.md");
             File.WriteAllText (file, "# From File");
 
-            CletRunOptions options = new () { Arguments = [file], AllowedFiles = [tempDir] };
+            CommandRunOptions options = new () { Arguments = [file], Extensions = new Dictionary<string, IReadOnlyList<string>> { ["allow-file"] = [tempDir] } };
 
-            var result = MarkdownContentResolver.Resolve ("# Inline", options, stdinReader: null);
+            MarkdownContentResolver.ResolveResult result = MarkdownContentResolver.Resolve ("# Inline", options, stdinReader: null);
 
             Assert.True (result.IsSuccess);
             Assert.Equal ("# From File", result.Content);

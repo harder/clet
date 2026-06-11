@@ -16,6 +16,7 @@ dotnet build --no-restore
 
 # Tests use xunit.v3 via dotnet run (not dotnet test)
 dotnet run --project tests/Clet.UnitTests --no-build
+dotnet run --project tests/Clet.ConfigTests --no-build
 dotnet run --project tests/Clet.IntegrationTests --no-build
 dotnet run --project tests/Clet.SmokeTests --no-build
 ```
@@ -59,29 +60,29 @@ There is no separate lint step. CI runs on ubuntu-latest with `dotnet-quality: p
 
 Projects in this repo:
 
-- **`src/Clet/`** — The CLI executable (net10.0). Depends on `Terminal.Gui` v2 (preview NuGet, currently `2.0.2-develop.24` — pin tracked in `src/Clet/Clet.csproj`, must be replaced with a release tag before v0.5 schema-lock per spec §8 risks). All abstractions are `internal` (not published until v2 plugin system). `BuiltInClets.RegisterAll` registers the shipped clets by hand; auto-discovery via a source generator was explored and dropped.
-- **`tests/Clet.UnitTests/`** — Registry, JSON schema, host pipeline (CommandLineRoot, OutputFormatter, ExitCodes, BuiltInClets) tests.
+- **`src/Clet/`** — The CLI executable (net10.0). Depends on `Terminal.Gui.Cli` (preview NuGet, version pinned in `Directory.Build.props`) which provides the CLI hosting infrastructure (`CliHost`, `CommandRegistry`, `ResultWriter`, `ExitCodes`, `JsonEnvelope`, etc.). clet is a thin consumer: it registers its commands via `BuiltInCommands.RegisterAll` and lets the package handle parsing, dispatch, and output formatting. Auto-discovery via a source generator was explored and dropped.
+- **`tests/Clet.UnitTests/`** — Command implementations, file access policy, content resolution, and BuiltInCommands registration tests.
+- **`tests/Clet.ConfigTests/`** — Non-parallel assembly for all `ConfigurationManager`-touching tests (EditorSettings, FileAccessSettings CM round-trips). `xunit.runner.json` disables both assembly and collection parallelization. **Never enable CM in the other parallel test projects.**
 - **`tests/Clet.IntegrationTests/`** — In-process tests that init Terminal.Gui (`Application.Create()`, `app.Init("ansi")`).
 - **`tests/Clet.SmokeTests/`** — Process-level smoke tests (`Process.Start` against the built `Clet.dll`). The keystroke-driven cases land at v0.3 with TUIcast — see `specs/decisions.md` D-007.
 
 ### Key directory layout inside `src/Clet/`
 
-- `Abstractions/` — `IClet`, `IClet<TValue>`, `IViewerClet`, `ICletRegistry`, `CletKind`, `CletRunResult<T>`, `CletRunOptions`, `CletOptionDescriptor`, `BoxedCletResult` (non-generic dispatch type — see decisions D-005)
-- `Registry/` — `CletRegistry` (instance-based, case-insensitive alias lookup, duplicate protection); `BuiltInClets.RegisterAll` (manual registration)
-- `Json/` — `SchemaV1` (the JSON envelope) and `CletJsonContext` (source-generated System.Text.Json)
-- `Clets/Input/` — Input clet implementations (currently `SelectClet`)
-- `Clets/Viewer/` — Viewer/browser clet implementations (`md`, `help`)
-- `Hosting/` — `Program.cs` entry point, `CommandLineRoot` (hand-rolled CLI parser; D-006), `AliasDispatcher`, `OutputFormatter`, `ExitCodes`
+- `Clets/Input/` — Input command implementations (SelectClet, TextClet, IntClet, etc.)
+- `Clets/Viewer/` — Viewer/browser command implementations (`md`, `edit`, `config`)
+- `Hosting/` — `Program.cs` entry point (uses `CliHost` from `Terminal.Gui.Cli`), `BuiltInCommands` (registration helper), `CletHelpProvider` (custom help), `CletOptionsExtensions` (extension accessors for clet-specific global options)
 
 ### Core patterns
 
-**Two clet kinds:** Input clets wrap a View with `IValue<T>` and return a typed result via `Task<CletRunResult<TValue>> RunAsync(...)`. Viewer clets are read-only (dismissable with Esc/q/Ctrl-C) and return status-only envelopes.
+**Two clet kinds:** Input clets implement `ICliCommand<TValue>` and return a typed result via `Task<CommandResult<TValue>> RunAsync(...)`. Viewer clets implement `IViewerCommand` (dismissable with Esc/q/Ctrl-C) and return status-only envelopes.
 
-**JSON result envelope (SchemaV1):** `{ schemaVersion: 1, status, value?, code?, message? }`. Status is one of: `ok`, `cancelled`, `error`, `no-result`. Value is omitted (not null) when absent.
+**JSON result envelope:** `{ schemaVersion: 1, status, value?, code?, message? }`. Status is one of: `ok`, `cancelled`, `error`, `no-result`. Value is omitted (not null) when absent. Envelope format is owned by the `Terminal.Gui.Cli` package (`JsonEnvelope`).
 
-**Exit codes:** 0 = success, 2 = usage error, 130 = cancelled (SIGINT convention).
+**Exit codes:** 0 = success, 2 = usage error, 130 = cancelled (SIGINT convention). Provided by the package's `ExitCodes` class.
 
-**Registry:** Instance-based (not static singletons). Tests can create isolated registries.
+**Registry:** Instance-based (not static singletons) via the package's `CommandRegistry`. Tests can create isolated registries.
+
+**Clet-specific global options:** `--allow-file`, `--allow-binary`, `--no-browse` are registered as `GlobalOptionDescriptor` entries in `CliHost` configuration. Accessed via `CommandRunOptions.Extensions` dictionary using helpers in `CletOptionsExtensions`.
 
 **InternalsVisibleTo:** Both test projects have access to internals via `src/Clet/Properties/AssemblyInfo.cs`.
 
