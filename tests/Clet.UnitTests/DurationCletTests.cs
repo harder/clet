@@ -1,5 +1,7 @@
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UnitTests;
 
 public class DurationCletTests
@@ -17,7 +19,7 @@ public class DurationCletTests
     {
         DurationClet clet = new ();
 
-        Assert.Equal (CletKind.Input, clet.Kind);
+        Assert.Equal (CommandKind.Input, clet.Kind);
     }
 
     [Fact]
@@ -55,7 +57,7 @@ public class DurationCletTests
     [Fact]
     public void AcceptsPositionalArgs_IsFalse ()
     {
-        IClet clet = new DurationClet ();
+        ICliCommand clet = new DurationClet ();
 
         Assert.False (clet.AcceptsPositionalArgs);
     }

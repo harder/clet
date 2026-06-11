@@ -14,7 +14,7 @@ Works for humans and AI agents alike.
 | `text`, `multiline-text`, `mt` | Prompts for multi-line text input using an editor and returns the entered string. | |
 | `int` | Prompts for an integer value using a numeric spinner. | `--step` |
 | `decimal` | Prompts for a decimal value using a numeric spinner. | `--step` |
-| `confirm` | Prompts for a yes/no confirmation and returns a boolean. | `--prompt` |
+| `confirm` | Prompts for a yes/no confirmation and returns a boolean. | |
 | `date` | Prompts for a date and returns an ISO-8601 date string (YYYY-MM-DD). | |
 | `time` | Prompts for a time and returns an ISO-8601 time string (HH:MM:SS). | |
 | `duration` | Prompts for a duration and returns an ISO-8601 duration string (e.g. PT1H30M). | |
@@ -96,8 +96,8 @@ clet edit ./notes.txt
 # Open the configuration editor (theming, keybindings, etc.)
 clet config
 
-# See all available clets
-clet list
+# See available commands (TUI help viewer)
+clet help
 ```
 
 ### AI agent usage (`--json`)
@@ -115,9 +115,9 @@ clet pick-file --json --root ./src --timeout 30s
 clet confirm --json "Apply this patch?"
 # → {"schemaVersion":1,"status":"cancelled"}   (exit 130)
 
-# Discover available clets once per session
-clet list --json
-# → {"schemaVersion":1,"clets":[{"alias":"select","kind":"input","resultType":"string",...},...]}
+# Discover available commands (machine-readable manifest)
+clet --opencli
+# → {"name":"clet","version":"...","commands":[{"alias":"select","kind":"input","resultType":"string",...},...]}
 ```
 
 Exit codes: 

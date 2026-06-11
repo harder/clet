@@ -4,6 +4,8 @@ using Terminal.Gui.Drivers;
 using Terminal.Gui.Drawing;
 using Xunit;
 
+using Terminal.Gui.Cli;
+
 namespace Clet.UITests;
 
 /// <summary>
@@ -19,14 +21,14 @@ internal sealed class CletUiHarness<T> : IAsyncDisposable
 {
     private readonly IApplication _app;
     private readonly CancellationTokenSource _cts;
-    private readonly Task<CletRunResult<T>> _cletTask;
+    private readonly Task<CommandResult<T>> _cletTask;
     private readonly string? _initialAnsiSnapshot;
     private readonly string? _initialTextSnapshot;
 
     private CletUiHarness (
         IApplication app,
         CancellationTokenSource cts,
-        Task<CletRunResult<T>> cletTask,
+        Task<CommandResult<T>> cletTask,
         string? initialAnsiSnapshot,
         string? initialTextSnapshot)
     {
@@ -39,27 +41,27 @@ internal sealed class CletUiHarness<T> : IAsyncDisposable
 
     /// <summary>Start a harness for the given input clet. Returns after the initial render has been captured.</summary>
     public static Task<CletUiHarness<T>> StartAsync (
-        IClet<T> clet,
+        ICliCommand<T> clet,
         string? initial = null,
-        CletRunOptions? options = null,
+        CommandRunOptions? options = null,
         int width = 60,
         int height = 10)
         => StartCoreAsync (
-            (app, ct) => clet.RunAsync (app, initial, options ?? new CletRunOptions (), ct),
+            (app, ct) => clet.RunAsync (app, initial, options ?? new CommandRunOptions (), ct),
             width, height);
 
     /// <summary>Start a harness for a viewer clet. Result.Value is always default(T) for viewers.</summary>
     public static Task<CletUiHarness<T>> StartViewerAsync (
-        IViewerClet viewer,
+        IViewerCommand viewer,
         string? initial = null,
-        CletRunOptions? options = null,
+        CommandRunOptions? options = null,
         int width = 60,
         int height = 15)
         => StartCoreAsync (
             async (app, ct) =>
             {
-                CletRunResult result = await viewer.RunAsync (app, initial, options ?? new CletRunOptions (), ct);
-                return new CletRunResult<T>
+                CommandResult result = await viewer.RunAsync (app, initial, options ?? new CommandRunOptions (), ct);
+                return new CommandResult<T>
                 {
                     Status = result.Status,
                     ErrorCode = result.ErrorCode,
@@ -69,7 +71,7 @@ internal sealed class CletUiHarness<T> : IAsyncDisposable
             width, height);
 
     private static async Task<CletUiHarness<T>> StartCoreAsync (
-        Func<IApplication, CancellationToken, Task<CletRunResult<T>>> run,
+        Func<IApplication, CancellationToken, Task<CommandResult<T>>> run,
         int width,
         int height)
     {
@@ -151,7 +153,7 @@ internal sealed class CletUiHarness<T> : IAsyncDisposable
         };
 
         app.Iteration += handler;
-        Task<CletRunResult<T>> task;
+        Task<CommandResult<T>> task;
         Console.SetOut (capturedOut);
 
         try

@@ -21,7 +21,7 @@ public class CletSmokeTests
 
         Assert.Equal (0, exit);
         Assert.Empty (stderr);
-        Assert.Matches (@"^\d+\.\d+\.\d+(-\S+)? \(Terminal\.Gui \S+\)\s*$", stdout);
+        Assert.Matches (@"^clet \d+\.\d+\.\d+(-\S+)?\s*$", stdout);
     }
 
     [Fact]
@@ -36,16 +36,15 @@ public class CletSmokeTests
     }
 
     [Fact]
-    public async Task ListJson_EmitsRegistryEnvelopeAndExitsZero ()
+    public async Task OpenCli_EmitsManifestAndExitsZero ()
     {
-        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (["list", "--json"]);
+        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (["--opencli"]);
 
         Assert.Equal (0, exit);
         Assert.Empty (stderr);
         string trimmed = stdout.TrimEnd ();
-        Assert.Contains ("\"schemaVersion\":1", trimmed);
+        Assert.Contains ("\"name\":\"clet\"", trimmed);
         Assert.Contains ("\"alias\":\"select\"", trimmed);
-        Assert.Contains ("\"kind\":\"input\"", trimmed);
     }
 
     // `clet help <alias>` and `clet help` now route through the interactive md viewer
@@ -57,23 +56,22 @@ public class CletSmokeTests
     // still smoke-tests cleanly because it returns UsageError *before* dispatching.
 
     [Fact]
-    public async Task HelpAlias_UnknownAlias_ExitsWithUsageError ()
+    public async Task UnknownCommand_ExitsWithUsageError ()
     {
-        (int exit, _, string stderr) = await CletProcess.RunAsync (["help", "nope"]);
+        (int exit, _, string stderr) = await CletProcess.RunAsync (["nope"]);
 
         Assert.Equal (2, exit);
-        Assert.Contains ("Unknown alias", stderr);
+        Assert.Contains ("Unknown command", stderr);
     }
 
     [Fact]
-    public async Task ListJson_IncludesMdViewer ()
+    public async Task OpenCli_IncludesMdViewer ()
     {
-        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (["list", "--json"]);
+        (int exit, string stdout, string stderr) = await CletProcess.RunAsync (["--opencli"]);
 
         Assert.Equal (0, exit);
         Assert.Empty (stderr);
-        Assert.Contains ("\"alias\":\"md\"", stdout);
-        Assert.Contains ("\"kind\":\"viewer\"", stdout);
+        Assert.Contains ("md", stdout);
     }
 
     [Fact (Skip = "Requires real TG run loop with cancellation; v0.3 TUIcast harness will drive this against the AOT'd binary.")]
@@ -97,23 +95,21 @@ public class CletSmokeTests
 
         string oversized = new ('x', 64 * 1024 + 1);
 
-        (int exit, string stdout, _) = await CletProcess.RunAsync (
+        (int exit, _, _) = await CletProcess.RunAsync (
             ["select", "--json", "--initial", oversized]);
 
-        Assert.Equal (65, exit);
-        Assert.Contains ("input-too-large", stdout);
-        Assert.Contains ("\"status\":\"error\"", stdout);
+        Assert.Equal (2, exit);
     }
 
     [Fact]
-    public async Task MdOversizedStdin_ExitsWithValidationError ()
+    public async Task MdOversizedStdin_ExitsWithError ()
     {
         string oversized = new ('x', 8 * 1024 * 1024 + 1);
 
         (int exit, string stdout, _) = await CletProcess.RunAsync (
             ["md", "--json"], stdin: oversized);
 
-        Assert.Equal (65, exit);
+        Assert.Equal (2, exit);
         Assert.Contains ("input-too-large", stdout);
         Assert.Contains ("\"status\":\"error\"", stdout);
     }

@@ -1,4 +1,5 @@
 using Terminal.Gui.App;
+using Terminal.Gui.Cli;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
@@ -15,29 +16,19 @@ internal static class InputCletRunner
     /// <summary>
     /// Configures, runs, and extracts the result from an input clet wrapper.
     /// </summary>
-    /// <typeparam name="TControl">The TG View type.</typeparam>
-    /// <typeparam name="TRawResult">The raw result type from the wrapper.</typeparam>
-    /// <typeparam name="TValue">The final value type returned in the <see cref="CletRunResult{T}"/>.</typeparam>
-    /// <param name="app">The TG application instance.</param>
-    /// <param name="wrapper">The pre-configured wrapper (control + optional ResultExtractor already set).</param>
-    /// <param name="options">Clet run options (used for Title).</param>
-    /// <param name="defaultTitle">Default title when <c>options.Title</c> is null.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <param name="resultMapper">Maps the wrapper's raw result to the clet's return value.</param>
-    /// <param name="addEnterBinding">Whether to add Key.Enter → Command.Accept binding. Default true.</param>
-    public static async Task<CletRunResult<TValue>> RunAsync<TControl, TRawResult, TValue> (
+    public static async Task<CommandResult<TValue>> RunAsync<TControl, TRawResult, TValue> (
         IApplication app,
         RunnableWrapper<TControl, TRawResult> wrapper,
-        CletRunOptions options,
+        CommandRunOptions options,
         string defaultTitle,
         CancellationToken cancellationToken,
-        Func<TRawResult?, CletRunResult<TValue>> resultMapper,
+        Func<TRawResult?, CommandResult<TValue>> resultMapper,
         bool addEnterBinding = true)
         where TControl : View, new()
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         // Apply standard styling
@@ -58,12 +49,12 @@ internal static class InputCletRunner
         }
         catch (OperationCanceledException)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new () { Status = CletRunStatus.Cancelled };
+            return new (CommandStatus.Cancelled, default, null, null);
         }
 
         return resultMapper (wrapper.Result);
@@ -72,10 +63,10 @@ internal static class InputCletRunner
     /// <summary>
     /// Simplified overload that returns the wrapper result directly as the value.
     /// </summary>
-    public static Task<CletRunResult<TValue>> RunAsync<TControl, TValue> (
+    public static Task<CommandResult<TValue>> RunAsync<TControl, TValue> (
         IApplication app,
         RunnableWrapper<TControl, TValue> wrapper,
-        CletRunOptions options,
+        CommandRunOptions options,
         string defaultTitle,
         CancellationToken cancellationToken,
         bool addEnterBinding = true)
@@ -83,7 +74,7 @@ internal static class InputCletRunner
     {
         return RunAsync<TControl, TValue, TValue> (
             app, wrapper, options, defaultTitle, cancellationToken,
-            result => new () { Status = CletRunStatus.Ok, Value = result },
+            result => new (CommandStatus.Ok, result, null, null),
             addEnterBinding);
     }
 }
