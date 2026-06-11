@@ -500,7 +500,7 @@ For `pick-file`/`pick-directory`, `--root` remains a starting directory, not a s
 
 The asset-flow break is upstream: Terminal.Gui transitively pulls in `TextMateSharp` via `TextMateSharp.Grammars`, but something about how the package is composed prevents the runtime DLL from appearing in publish output even though it is present in `bin/` after `dotnet build`. Reproducible on `2.0.2-develop.57` and `2.0.2-develop.24`.
 
-**Decision.** Add a direct `<PackageReference Include="TextMateSharp" Version="2.0.3" />` to `src/Clet/Clet.csproj` so publish picks it up. Pin matches what `TextMateSharp.Grammars` 2.0.3 already brings in transitively; we are not introducing a new version surface.
+**Decision.** Add a direct `<PackageReference Include="TextMateSharp" Version="2.0.4" />` to `src/Clet/Clet.csproj` so publish picks it up. Pin matches what `TextMateSharp.Grammars` already brings in transitively; we are not introducing a new version surface. (Originally 2.0.3; bumped to 2.0.4 when Terminal.Gui 2.4.5 required `TextMateSharp >= 2.0.4` — see NU1605.)
 
 **Why not push entirely upstream.** PR #110's release pipeline is the user-visible deliverable; we cannot ship until the published binary works. A clet-side workaround is one line and fully reversible. We will remove the explicit reference once the upstream packaging is fixed.
 
