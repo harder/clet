@@ -6,11 +6,11 @@
   6 [38;2;212;212;212m[49m  //  Terminal.Gui[38;2;156;220;254m[49m's ConfigurationManager loads this automatically.[39m[49m                            ░
   7 [38;2;212;212;212m[49m  //[39m[49m                                                                                           ░
   8 [38;2;212;212;212m[49m  //  Edit and save (Ctrl+S) to apply changes live.[39m[49m                                            ░
-  9 [38;2;212;212;212m[49m  //  See: ]8;;https://gui-cs.github.io/Terminal.Gui/docs/config.html\https://gui-cs.github.io/Terminal.Gui/docs/config.html]8;;\[39m[49m                              ░
- 10 [38;2;212;212;212m[49m  //  Schema: ]8;;https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json\https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json]8;;\[39m[49m             ░
+  9 [38;2;212;212;212m[49m  //  See: ]8;;https://tui-cs.github.io/Terminal.Gui/docs/config.html\https://tui-cs.github.io/Terminal.Gui/docs/config.html]8;;\[39m[49m                              ░
+ 10 [38;2;212;212;212m[49m  //  Schema: ]8;;https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json\https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json]8;;\[39m[49m             ░
  11 [38;2;212;212;212m[49m  // ═══════════════════════════════════════════════════════════════════════[39m[49m                   ░
  12                                                                                                ░
- 13 [38;2;212;212;212m[49m  [38;2;156;220;254m[49m"$schema"[38;2;212;212;212m[49m: [38;2;206;145;120m[49m"]8;;https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json\https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json]8;;\"[38;2;212;212;212m[49m,[39m[49m           ░
+ 13 [38;2;212;212;212m[49m  [38;2;156;220;254m[49m"$schema"[38;2;212;212;212m[49m: [38;2;206;145;120m[49m"]8;;https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json\https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json]8;;\"[38;2;212;212;212m[49m,[39m[49m           ░
  14                                                                                                ░
  15 [38;2;212;212;212m[49m  // ─── General Settings ─────────────────────────────────────────────────[39m[49m                    ░
  16                                                                                                ░

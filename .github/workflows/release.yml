@@ -10,8 +10,8 @@ name: Release
 #
 # Triggers:
 #   1. Push to main that changes code
-#   2. repository_dispatch from gui-cs/Terminal.Gui (any main-branch publish: rc, beta, stable)
-#   3. repository_dispatch from gui-cs/Editor (any main-branch publish)
+#   2. repository_dispatch from tui-cs/Terminal.Gui (any main-branch publish: rc, beta, stable)
+#   3. repository_dispatch from tui-cs/Editor (any main-branch publish)
 #   4. Manual workflow_dispatch
 on:
   push:
@@ -465,7 +465,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: gui-cs/homebrew-tap
+          repository: tui-cs/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - name: Download macOS artifacts

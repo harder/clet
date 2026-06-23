@@ -2,12 +2,12 @@
 
 > **Status:** DRAFT — exercised once before v0.9 RC per `specs/clet-spec.md` §7. Until that exercise has happened, treat every step here as "best guess; verify before executing."
 
-> **Audience:** the maintainer paged at 3am for a `clet` release that escaped the §5.3 smoke gate. Assume you did not ship the bad release. Assume you have repo-admin on `gui-cs/clet`, push access to `gui-cs/homebrew-tap`, the WinGet PR-author cred, and the NuGet API key in a known location.
+> **Audience:** the maintainer paged at 3am for a `clet` release that escaped the §5.3 smoke gate. Assume you did not ship the bad release. Assume you have repo-admin on `tui-cs/clet`, push access to `tui-cs/homebrew-tap`, the WinGet PR-author cred, and the NuGet API key in a known location.
 
 `clet` auto-publishes from the `main` release workflow:
 
 - **Prerelease phase** (`-rc` suffix from `src/Clet/Clet.csproj`): NuGet `clet` prerelease only (off `latest`; opt-in via `--prerelease`). See [D-024](../../specs/decisions.md) for the package id.
-- **Stable phase** (no `-` suffix in version): NuGet `clet` (latest), Homebrew (gui-cs tap), WinGet (`microsoft/winget-pkgs`).
+- **Stable phase** (no `-` suffix in version): NuGet `clet` (latest), Homebrew (tui-cs tap), WinGet (`microsoft/winget-pkgs`).
 
 When the §5.3 smoke gate fails, the workflow halts and nothing reaches users — that case is an *aborted* release, not a *bad* release, and is out of scope for this runbook. This runbook covers the case where the gate let something through (a regression it didn't cover, a manifest bug, a signing failure mid-publish) and one or more channels carry a broken `clet`.
 
@@ -28,17 +28,17 @@ If you are not sure, rollback. Re-publishing later is cheap; pulling back a bad 
 
 > Run withdrawals **in parallel** if you have help. Each channel is independent; nothing here serializes.
 
-### 2.1 Homebrew tap (`gui-cs/homebrew-tap`)
+### 2.1 Homebrew tap (`tui-cs/homebrew-tap`)
 
 **What happens to users:** Already-installed bad version stays on the user's machine until they `brew upgrade`. After withdrawal, `brew upgrade clet` resolves to the prior-known-good version.
 
 **Steps:**
 
-1. `git clone https://github.com/gui-cs/homebrew-tap`
+1. `git clone https://github.com/tui-cs/homebrew-tap`
 2. Identify the commit that bumped `clet.rb` to the bad version.
 3. **`git revert <sha>`** — never `--force` push, never `reset --hard`. The revert preserves the audit trail and re-pins to the prior version's bottle URLs and SHA256s.
 4. `git push origin main` (or whatever the tap's default branch is).
-5. Verify: on a fresh runner, `brew update && brew info gui-cs/tap/clet` should report the prior version.
+5. Verify: on a fresh runner, `brew update && brew info tui-cs/tap/clet` should report the prior version.
 6. Optional: post a one-liner to the tap repo's Discussions explaining the revert.
 
 **Caveat:** Homebrew bottles are immutable on GitHub Releases by URL. The bad bottle URL still resolves; it's just no longer pointed to. If you need the bad bottle file *gone* (license/security reason), delete the asset from the GitHub Release manually — but `brew install` will then 404 for anyone who has the old formula in cache.
@@ -50,12 +50,12 @@ If you are not sure, rollback. Re-publishing later is cheap; pulling back a bad 
 **Steps:**
 
 1. Fork `microsoft/winget-pkgs` if you don't already have a fork.
-2. Delete the directory `manifests/g/gui-cs/clet/<bad-version>/` from the fork.
-3. Open a PR titled `Remove gui-cs.clet <bad-version> (broken release)` with a one-paragraph explanation.
+2. Delete the directory `manifests/g/tui-cs/clet/<bad-version>/` from the fork.
+3. Open a PR titled `Remove tui-cs.clet <bad-version> (broken release)` with a one-paragraph explanation.
 4. Microsoft's bot validates and merges if the manifest removal is clean. **Typical SLA: 2–24 hours.** There is no faster path; WinGet does not have an emergency-yank API.
 5. Verify post-merge: `winget search clet` should no longer list the bad version.
 
-**While the PR is pending,** consider posting a GitHub Release note on `gui-cs/clet` warning Windows users not to upgrade.
+**While the PR is pending,** consider posting a GitHub Release note on `tui-cs/clet` warning Windows users not to upgrade.
 
 ### 2.3 NuGet (`clet`)
 
@@ -63,7 +63,7 @@ If you are not sure, rollback. Re-publishing later is cheap; pulling back a bad 
 
 **Steps:**
 
-1. Sign in to `https://www.nuget.org` with the gui-cs account.
+1. Sign in to `https://www.nuget.org` with the tui-cs account.
 2. Navigate to `Manage Packages → clet → <bad-version>`.
 3. Click **Unlist** and confirm. (`dotnet nuget delete` is a list-only op, equivalent — use the web UI for the audit trail.)
 4. Verify: `dotnet tool search clet` should not surface the bad version.
@@ -87,7 +87,7 @@ Once channels are withdrawn (or while the WinGet PR is pending):
 
 Within 48 hours of stabilization:
 
-1. File an issue in `gui-cs/clet` titled `Incident: <TG_VERSION> rollback`. Tag `incident`. Include: timeline (UTC), trigger, blast radius (channels affected, estimated user count if available), root cause, fix.
+1. File an issue in `tui-cs/clet` titled `Incident: <TG_VERSION> rollback`. Tag `incident`. Include: timeline (UTC), trigger, blast radius (channels affected, estimated user count if available), root cause, fix.
 2. Add the failure mode as a new case to `tests/Clet.SmokeTests` (so a future regression of the same shape is caught) and to the §6.8 release-pipeline dry-run cases (so a future pipeline regression of the same shape is caught).
 3. If a runbook step here was wrong or missing, **edit this file** in the same PR. The runbook must end the incident better than it started it.
 
@@ -102,7 +102,7 @@ Within 48 hours of stabilization:
 ## Open questions (resolve before v0.9)
 
 - **Tag scheme for rollback patches** (see §3 step 3 above).
-- **On-call rotation.** Who carries the pager during release weeks? `gui-cs` does not currently have a rotation; until it does, "the person who tagged the TG release" is the de facto owner.
+- **On-call rotation.** Who carries the pager during release weeks? `tui-cs` does not currently have a rotation; until it does, "the person who tagged the TG release" is the de facto owner.
 - **Paging channel.** GitHub release-issue auto-comment is not a pager. Matrix? Discord? Email-to-SMS? Decide and document here.
 - **WinGet emergency contact.** Is there a faster path for Microsoft-bot-merged manifest removal in a security incident? Investigate before v0.9.
 - **Asciinema artifact retention.** TUIcast captures a `.cast` per smoke run (§5.3). Retention policy? Indefinitely is cheap; document explicitly so post-incident replays are guaranteed available.

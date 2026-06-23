@@ -4,7 +4,7 @@ Produces `docs/images/clet-pick-file.gif` — an animated GIF demonstrating clet
 
 ## Prerequisites
 
-- [tuirec](https://github.com/gui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/gui-cs/tuirec/cmd/tuirec@latest`)
+- [tuirec](https://github.com/tui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/tui-cs/tuirec/cmd/tuirec@latest`)
 - .NET 10 SDK (for building clet)
 - `agg` is auto-downloaded by tuirec on first use
 
@@ -31,7 +31,7 @@ $binary = "./src/Clet/bin/Debug/net10.0/Clet.exe"
 $ks = 'wait:1500,Tab,Tab,Tab,wait:300,`r`,wait:250,`e`,wait:250,`a`,wait:600,Shift+Tab,wait:400,`r`,wait:400,Enter'
 
 # Use 80×20 for a compact look (closer to inline feel).
-# True inline rendering requires tuirec support — see gui-cs/tuirec#49.
+# True inline rendering requires tuirec support — see tui-cs/tuirec#49.
 tuirec record `
     --binary $binary `
     --args "pick-file" `
@@ -64,7 +64,7 @@ Copy-Item recording.gif ./docs/images/clet-pick-file.gif -Force
 - **Tab order**: The pick-file view has multiple focusable areas. Tab×3 reaches the filter field from the initial table focus.
 - **Filter field**: Typing in the filter field narrows the file list in real-time.
 - **Jump-select**: In the table, typing a character jumps to the first entry starting with that character.
-- **Terminal size**: 80×20 for a compact look that's closer to inline rendering. True inline support depends on gui-cs/tuirec#49.
+- **Terminal size**: 80×20 for a compact look that's closer to inline rendering. True inline support depends on tui-cs/tuirec#49.
 - **Drain**: Use `--drain 1500` to capture the command-line output after the app exits.
 
 ## Troubleshooting

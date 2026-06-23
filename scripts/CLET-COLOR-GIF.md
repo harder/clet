@@ -4,7 +4,7 @@ Produces `docs/images/clet-color.gif` — an animated GIF demonstrating clet's c
 
 ## Prerequisites
 
-- [tuirec](https://github.com/gui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/gui-cs/tuirec/cmd/tuirec@latest`)
+- [tuirec](https://github.com/tui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/tui-cs/tuirec/cmd/tuirec@latest`)
 - .NET 10 SDK (for building clet)
 - `agg` is auto-downloaded by tuirec on first use
 

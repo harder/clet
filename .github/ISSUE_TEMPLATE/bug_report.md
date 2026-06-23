@@ -6,7 +6,7 @@ labels: bug
 
 > **Is this a Terminal.Gui core bug?**  
 > If the issue is in rendering, a driver, a built-in View, or keybindings, it belongs in
-> [`gui-cs/Terminal.Gui`](https://github.com/gui-cs/Terminal.Gui/issues).  
+> [`tui-cs/Terminal.Gui`](https://github.com/tui-cs/Terminal.Gui/issues).  
 > Not sure? File here first. The clet maintainer will reproduce, isolate, and escalate
 > upstream if the root cause turns out to be in TG core (spec §2.1).
 

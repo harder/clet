@@ -57,7 +57,7 @@ resolve-version → build (3 RIDs) → tag → publish-nuget
 
 **NuGet:** Main publishes to package id `clet` (see [D-024](../../specs/decisions.md)). Prerelease versions (`-rc`) are hidden from default `dotnet tool install -g clet`; consumers opt in with `--prerelease`.
 
-**Homebrew / WinGet:** Only on stable main releases (version has no `-` suffix). Both are placeholders until `gui-cs/homebrew-tap` exists and WinGet tooling is wired (D-012).
+**Homebrew / WinGet:** Only on stable main releases (version has no `-` suffix). Both are placeholders until `tui-cs/homebrew-tap` exists and WinGet tooling is wired (D-012).
 
 ## Terminal.Gui versions
 
@@ -77,7 +77,7 @@ Release builds reject Terminal.Gui or Terminal.Gui.Editor versions older than th
 | Name | Type | Used by | Purpose |
 |------|------|---------|---------|
 | `NUGET_API_KEY` | Secret | `publish-nuget` | Push packages to nuget.org |
-| `HOMEBREW_TAP_TOKEN` | Secret | `publish-homebrew` | Push to `gui-cs/homebrew-tap` |
+| `HOMEBREW_TAP_TOKEN` | Secret | `publish-homebrew` | Push to `tui-cs/homebrew-tap` |
 | `HOMEBREW_TAP_ENABLED` | Variable | `publish-homebrew` | Set to `true` to enable |
 | `WINGET_ENABLED` | Variable | `publish-winget` | Set to `true` to enable |
 

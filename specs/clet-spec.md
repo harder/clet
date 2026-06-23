@@ -1,6 +1,6 @@
 # `clet` Implementation Spec
 
-**Status:** draft v0.5 · companion to the PR/FAQ in [issue #5155](https://github.com/gui-cs/Terminal.Gui/issues/5155)
+**Status:** draft v0.5 · companion to the PR/FAQ in [issue #5155](https://github.com/tui-cs/Terminal.Gui/issues/5155)
 
 This is the implementation spec. It assumes the PR/FAQ is broadly accepted and covers what to build, where it lives, what changes in Terminal.Gui to support it, how it ships, and how it's tested.
 
@@ -8,10 +8,10 @@ This is the implementation spec. It assumes the PR/FAQ is broadly accepted and c
 
 ### In scope (v1.0)
 
-- New repo `gui-cs/clet` containing all clet code: abstractions, registry, JSON, built-in clets, CLI binary, release automation.
-- Targeted changes to `gui-cs/Terminal.Gui` core (§3) that benefit TG generally and unblock clet specifically.
+- New repo `tui-cs/clet` containing all clet code: abstractions, registry, JSON, built-in clets, CLI binary, release automation.
+- Targeted changes to `tui-cs/Terminal.Gui` core (§3) that benefit TG generally and unblock clet specifically.
 - Fourteen input clets and one browser clet (`md`) statically registered in v1.0.
-- Native installer channels: Homebrew (gui-cs tap), WinGet, .NET tool. NativeAOT for native channels.
+- Native installer channels: Homebrew (tui-cs tap), WinGet, .NET tool. NativeAOT for native channels.
 - Independent SemVer; major version tied to `schemaVersion` changes per §4.3.1 (see [D-022](decisions.md)).
 - JSON output contract (schemaVersion 1).
 - Inline input rendering; alt-screen viewer rendering.
@@ -31,13 +31,13 @@ This is the implementation spec. It assumes the PR/FAQ is broadly accepted and c
 Two repos. One assembly that matters (the CLI exe). One release cadence.
 
 ```
-gui-cs/Terminal.Gui                           gui-cs/clet
+tui-cs/Terminal.Gui                           tui-cs/clet
 ├── Terminal.Gui/                             ├── src/
 │     (core; §3 tweaks land here,             │   └── Clet/
 │      no clet-specific types)                │         Abstractions/  (IClet, ICletRegistry, ...)
 ├── Tests/                                    │         Registry/
 │     (TG core tests only;                    │         Json/          (CletJsonContext, SchemaV1)
-│      clet tests live in gui-cs/clet)        │         Clets/Input/   (14 input clets)
+│      clet tests live in tui-cs/clet)        │         Clets/Input/   (14 input clets)
 └── .github/workflows/                        │         Clets/Viewer/  (MarkdownClet)
       notify-clet-on-release.yml (NEW)        │         Hosting/       (Program.cs, CLI parser)
                                               │         Help/          (overview.md)
@@ -70,21 +70,21 @@ All of (3)+(4) is plain Terminal.Gui hosting against TG's public API. The clet i
 
 ### 2.1 Ownership
 
-**TG core** (rendering, drivers, Views, keybindings) → `gui-cs/Terminal.Gui` maintainers.
-**CLI host, registry, JSON envelope, packaging, clets** → `gui-cs/clet` maintainers.
-**Cross-repo bugs** file in `gui-cs/clet` first; the clet maintainer reproduces, isolates, and escalates upstream if the root cause is in TG core.
+**TG core** (rendering, drivers, Views, keybindings) → `tui-cs/Terminal.Gui` maintainers.
+**CLI host, registry, JSON envelope, packaging, clets** → `tui-cs/clet` maintainers.
+**Cross-repo bugs** file in `tui-cs/clet` first; the clet maintainer reproduces, isolates, and escalates upstream if the root cause is in TG core.
 
 ## 3. Terminal.Gui Changes Required
 
 All prerequisite TG changes have landed on `develop`:
 
-- **Inline rendering** — shipping and exercised by `md`, the inline examples, and `gui-cs/ai`.
+- **Inline rendering** — shipping and exercised by `md`, the inline examples, and `tui-cs/ai`.
 - **AOT compatibility** — tracked in TG core; remaining issues surface by building/running `clet`.
 - **`ConfigurationManager`** path-based loading — broadly used and tested.
 - **`Markdown` View** — vetted for the read-only, dismissable, themed shape clet needs.
 - **Terminal-driver inline-capable detection** — in place.
-- **`Application.RunAsync(Toplevel, CancellationToken)`** ([#5157](https://github.com/gui-cs/Terminal.Gui/issues/5157)) — landed. Clet binds directly.
-- **`FileDialog` typed result** ([#5158](https://github.com/gui-cs/Terminal.Gui/issues/5158)) — landed as `Dialog<IReadOnlyList<string>?>`.
+- **`Application.RunAsync(Toplevel, CancellationToken)`** ([#5157](https://github.com/tui-cs/Terminal.Gui/issues/5157)) — landed. Clet binds directly.
+- **`FileDialog` typed result** ([#5158](https://github.com/tui-cs/Terminal.Gui/issues/5158)) — landed as `Dialog<IReadOnlyList<string>?>`.
 
 clet builds against the TG version named by `<TerminalGuiVersion>` in `src/Clet/Clet.csproj`; the release workflow overrides it from the dispatch payload. See [D-020](decisions.md).
 
@@ -96,14 +96,14 @@ On cancel, clet emits `{"schemaVersion":1,"status":"cancelled"}` and nothing els
 
 `FileDialog` inherits from `Dialog<IReadOnlyList<string>?>`. The `pick-file` and `pick-directory` clets bind to this directly. The §4.3.2 per-clet `value` shape table specifies the resulting JSON wire format (string for single-select, array of strings for `--multi`).
 
-## 4. `gui-cs/clet` Repo
+## 4. `tui-cs/clet` Repo
 
 This repo holds everything: abstractions, registry, JSON, built-in clets, the CLI binary, and release automation. One assembly is published; everything else is build-time only or test-only.
 
 ### 4.1 Project layout
 
 ```
-gui-cs/clet/
+tui-cs/clet/
 ├── Clet.slnx
 ├── src/
 │   └── Clet/                              (single Exe; PublishAot=true; net10.0)
@@ -174,7 +174,7 @@ All types are `internal` to the `Clet` assembly in v1.0. v2 may extract them to 
 
 ```json
 {
-  "$id": "https://gui-cs.github.io/clet/schema/v1.json",
+  "$id": "https://tui-cs.github.io/clet/schema/v1.json",
   "type": "object",
   "required": ["schemaVersion", "status"],
   "properties": {
@@ -279,7 +279,7 @@ clet --version
 
 **`--no-browse` (disable browser mode).** When `--no-browse` is passed to `md`, clicking local `.md` links shows the URL in the status bar instead of navigating. By default, `md` runs as a browser: following local links navigates to them with a back/forward history stack (Ctrl+Left / Ctrl+Right or ← → buttons in the status bar), and fragment anchors (`file.md#heading`) scroll to the matching heading.
 
-**`--output <path>` / `-o <path>` (file output).** Writes a successful clet result (plain text or JSON) to the specified file instead of stdout. `OutputFormatter` creates the file with non-overwriting semantics; existing paths are refused rather than truncated, including paths that are symlinks. Non-success results are not written to the output file and are emitted through the normal stdout/stderr paths. This works around the Terminal.Gui limitation where stdout redirection (`$()`, `|`, `>`) swallows the TUI (see gui-cs/Terminal.Gui#5207). If the file cannot be written, an error is emitted to stderr and the process exits with code 2. See [D-028](decisions.md).
+**`--output <path>` / `-o <path>` (file output).** Writes a successful clet result (plain text or JSON) to the specified file instead of stdout. `OutputFormatter` creates the file with non-overwriting semantics; existing paths are refused rather than truncated, including paths that are symlinks. Non-success results are not written to the output file and are emitted through the normal stdout/stderr paths. This works around the Terminal.Gui limitation where stdout redirection (`$()`, `|`, `>`) swallows the TUI (see tui-cs/Terminal.Gui#5207). If the file cannot be written, an error is emitted to stderr and the process exits with code 2. See [D-028](decisions.md).
 
 **Input-size caps.** `--initial` is capped at 64 K characters (code units) after alias resolution; unknown aliases remain usage errors rather than being reported as oversized-input validation failures. `clet md` stdin is capped at 8 M characters. On exceed for known aliases/content paths: exit 65, error code `input-too-large`, JSON envelope `{"schemaVersion":1,"status":"error","code":"input-too-large","message":"..."}`. These caps prevent OOM from untrusted piped input (see Appendix A). Per-clet options (`--<name> <value>`) are not yet capped; tracked as a follow-up.
 
@@ -318,7 +318,7 @@ Target binary size: ~8MB. Cold-start budget: <100ms on Apple Silicon, <100ms on 
 
 ### 5.1 Trigger
 
-`gui-cs/Terminal.Gui` and `gui-cs/Editor` fire `repository_dispatch` events to `gui-cs/clet` for main-branch package publishes (`tg-main-published` and `editor-main-published`). Develop-package dispatches do not publish clet builds.
+`tui-cs/Terminal.Gui` and `tui-cs/Editor` fire `repository_dispatch` events to `tui-cs/clet` for main-branch package publishes (`tg-main-published` and `editor-main-published`). Develop-package dispatches do not publish clet builds.
 
 Additionally, the release workflow fires on pushes to clet's own main branch (changes in `src/` or `tests/`) and manual `workflow_dispatch`.
 
@@ -330,7 +330,7 @@ The actual workflow is `.github/workflows/release.yml`. It builds AOT binaries f
 
 Before any publish step, every built binary runs a smoke matrix. The gate is process-level: it spawns the AOT'd binary, drives it from outside, and asserts on exit code + stdout JSON.
 
-**Driver:** [`gui-cs/TUIcast`](https://github.com/gui-cs/TUIcast) in deterministic-script mode. TUIcast spawns the binary inside a PTY, writes keystrokes to the PTY fd, and captures an asciinema stream. Deterministic mode takes a comma-separated keystroke script (`"wait:500,ArrowDown,Enter"`).
+**Driver:** [`tui-cs/TUIcast`](https://github.com/tui-cs/TUIcast) in deterministic-script mode. TUIcast spawns the binary inside a PTY, writes keystrokes to the PTY fd, and captures an asciinema stream. Deterministic mode takes a comma-separated keystroke script (`"wait:500,ArrowDown,Enter"`).
 
 **Cases:**
 
@@ -353,9 +353,9 @@ After all matrix jobs and smoke tests pass. Channel determines which publish ste
 | Prerelease | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has `-rc` | prerelease | — | — |
 | Stable | push to `main`, main-branch TG/Editor dispatch, or manual dispatch while `<Version>` has no prerelease suffix | stable | build-from-source | manifest PR |
 
-**.NET tool** (NuGet) — follows the [mdv](https://github.com/gui-cs/mdv) pattern: `<PackAsTool>true</PackAsTool>`, `<ToolCommandName>clet</ToolCommandName>`, `<PackageId>clet</PackageId>` on `src/Clet/Clet.csproj`. Install: `dotnet tool install -g clet`. See [D-019](decisions.md) (packaging) and [D-024](decisions.md) (package id).
+**.NET tool** (NuGet) — follows the [mdv](https://github.com/tui-cs/mdv) pattern: `<PackAsTool>true</PackAsTool>`, `<ToolCommandName>clet</ToolCommandName>`, `<PackageId>clet</PackageId>` on `src/Clet/Clet.csproj`. Install: `dotnet tool install -g clet`. See [D-019](decisions.md) (packaging) and [D-024](decisions.md) (package id).
 
-**Homebrew tap** (`gui-cs/homebrew-tap`) — release channel only. Build-from-source formula per [D-012](decisions.md).
+**Homebrew tap** (`tui-cs/homebrew-tap`) — release channel only. Build-from-source formula per [D-012](decisions.md).
 
 **WinGet** (PR to `microsoft/winget-pkgs`) — release channel only. Unsigned binary with SmartScreen warning acceptable for early adopters per [D-012](decisions.md).
 
@@ -379,7 +379,7 @@ clet maintains its own SemVer, independent of Terminal.Gui's version. Major bump
 Full testing strategy lives in [`tests/SPEC.md`](../tests/SPEC.md). Summary:
 
 - **Nine test layers**, each with a clear "what does this catch" purpose. Three harness families: in-process logic (no `Application.Init`), in-process UI (`IApplication` + `InputInjection` + `Driver.Contents` snapshots, frame-stepped), process-level (TUIcast over PTY).
-- The **four-terminal manual matrix** ([#23](https://github.com/gui-cs/clet/issues/23)) is the v0.5 gate.
+- The **four-terminal manual matrix** ([#23](https://github.com/tui-cs/clet/issues/23)) is the v0.5 gate.
 - The **JSON contract tests** are the schema-lock guard (`SchemaV1`).
 - The **smoke tests** are the release gate.
 
@@ -389,13 +389,13 @@ Schedule follows TG releases, not a calendar.
 
 | Milestone | Tracking | Exit criteria |
 |-----------|----------|---------------|
-| **v0.1 alpha** | [#2](https://github.com/gui-cs/clet/issues/2) | Repo bootstrapped; abstractions, registry, JSON in place; `select` clet working in unit + integration tests. No runnable binary — see v0.11. |
-| **v0.11** | [#9](https://github.com/gui-cs/clet/issues/9) | Runnable binary. CLI host per §4.6/§4.7. `clet --help` / `--version` / `help <alias>` / `list --json` / `<alias> --json` work end-to-end. Process-level smoke harness (Process.Start-based; TUIcast keystroke harness deferred to v0.3 — [D-007](decisions.md)). |
-| **v0.3 alpha** | [#3](https://github.com/gui-cs/clet/issues/3) | All 14 input clets functional. JSON schema drafted. AOT publish green. TUIcast keystroke harness wired up. |
-| **v0.5 beta** | [#4](https://github.com/gui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); main-channel rc workflow proven. Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
-| **v0.75 rc** | [#33](https://github.com/gui-cs/clet/issues/33) | Friends-and-family rc. >=5 external testers; >=3 Issues filed by non-maintainers; maintainer dogfooding for >=2 weeks; >=1 AI agent harness consuming `--json`; all P0 rc bugs resolved or deferred. |
-| **v0.9 RC** | [#5](https://github.com/gui-cs/clet/issues/5) | All §6 test layers passing. Release workflow proven against a real TG release. Homebrew formula + WinGet manifest in working-draft form. One real release cycle exercised. Rollback runbook exercised once. |
-| **v1.0 GA** | [#6](https://github.com/gui-cs/clet/issues/6) | Tied to TG v2 GA. Brew, WinGet, NuGet channels live. Documentation published. |
+| **v0.1 alpha** | [#2](https://github.com/tui-cs/clet/issues/2) | Repo bootstrapped; abstractions, registry, JSON in place; `select` clet working in unit + integration tests. No runnable binary — see v0.11. |
+| **v0.11** | [#9](https://github.com/tui-cs/clet/issues/9) | Runnable binary. CLI host per §4.6/§4.7. `clet --help` / `--version` / `help <alias>` / `list --json` / `<alias> --json` work end-to-end. Process-level smoke harness (Process.Start-based; TUIcast keystroke harness deferred to v0.3 — [D-007](decisions.md)). |
+| **v0.3 alpha** | [#3](https://github.com/tui-cs/clet/issues/3) | All 14 input clets functional. JSON schema drafted. AOT publish green. TUIcast keystroke harness wired up. |
+| **v0.5 beta** | [#4](https://github.com/tui-cs/clet/issues/4) | Naming/schema/exit-codes locked; inline rendering verified on four-terminal matrix; `Markdown` View integration verified; threat model published (`docs/threat-model.md`); `dotnet tool install -g clet` works locally ([D-019](decisions.md), [D-024](decisions.md)); main-channel rc workflow proven. Release-tag trigger proof and Homebrew/WinGet draft manifests moved to v0.9 RC. |
+| **v0.75 rc** | [#33](https://github.com/tui-cs/clet/issues/33) | Friends-and-family rc. >=5 external testers; >=3 Issues filed by non-maintainers; maintainer dogfooding for >=2 weeks; >=1 AI agent harness consuming `--json`; all P0 rc bugs resolved or deferred. |
+| **v0.9 RC** | [#5](https://github.com/tui-cs/clet/issues/5) | All §6 test layers passing. Release workflow proven against a real TG release. Homebrew formula + WinGet manifest in working-draft form. One real release cycle exercised. Rollback runbook exercised once. |
+| **v1.0 GA** | [#6](https://github.com/tui-cs/clet/issues/6) | Tied to TG v2 GA. Brew, WinGet, NuGet channels live. Documentation published. |
 
 ## 8. Risks and Mitigations
 
@@ -411,7 +411,7 @@ Schedule follows TG releases, not a calendar.
 ## 9. Open Questions
 
 1. **Telemetry.** Not in v1.0 scope; revisit at v1.1 with a privacy review.
-2. **Homebrew tap repo name.** `gui-cs/homebrew-tap` assumed; confirm it exists or create.
+2. **Homebrew tap repo name.** `tui-cs/homebrew-tap` assumed; confirm it exists or create.
 3. **Code signing certs.** Deferred post-1.0 per [D-012](decisions.md). Confirm ownership/renewal before signing is re-enabled.
 4. ~~**`md` content source.**~~ Resolved ([D-015](decisions.md)). Both file arguments and stdin, with precedence: file args -> `--initial` -> stdin -> error.
 5. **PR/FAQ update upstream.** Issue #5155's PR/FAQ still references `Terminal.Gui.Clets` as a separate assembly. Update the issue body to match this spec before v1.0.
@@ -422,7 +422,7 @@ Schedule follows TG releases, not a calendar.
 Steps 1-10 are done (through v0.5). Remaining:
 
 11. **Publish channels:** Homebrew (build-from-source), then WinGet, then NuGet tool push.
-12. **v0.75 rc** — friends-and-family testing ([#33](https://github.com/gui-cs/clet/issues/33)).
+12. **v0.75 rc** — friends-and-family testing ([#33](https://github.com/tui-cs/clet/issues/33)).
 13. **v0.9 RC** — release workflow proven against real TG release; Homebrew/WinGet manifests in working-draft form; rollback runbook exercised.
 14. **v1.0 GA.**
 
@@ -473,6 +473,6 @@ Full document published at `docs/threat-model.md`.
 
 ## Appendix B: Cross-References
 
-- PR/FAQ: [issue #5155](https://github.com/gui-cs/Terminal.Gui/issues/5155)
+- PR/FAQ: [issue #5155](https://github.com/tui-cs/Terminal.Gui/issues/5155)
 - TG core docs: `docfx/docs/application.md`, `docfx/docs/View.md`, `docfx/docs/cancellable-work-pattern.md`
 - Contributor rules: `.claude/rules/`, `CLAUDE.md`

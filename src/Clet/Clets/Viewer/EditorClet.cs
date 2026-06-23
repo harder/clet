@@ -1077,7 +1077,7 @@ internal sealed class EditorClet : IViewerCommand
                         Terminal.Gui {VersionInfo.GetTerminalGuiVersion ()}
                         Terminal.Gui.Editor {editorVersion}
 
-                        https://github.com/gui-cs/clet
+                        https://github.com/tui-cs/clet
                         """
             };
 

@@ -33,8 +33,8 @@ Works for humans and AI agents alike.
 ### Release (not available until v1.0 is released)
 
 ```sh
-brew install gui-cs/tap/clet  # macOS / Linux
-winget install gui-cs.clet    # Windows 10/11
+brew install tui-cs/tap/clet  # macOS / Linux
+winget install tui-cs.clet    # Windows 10/11
 dotnet tool install -g clet   # any platform with .NET SDK
 ```
 
@@ -143,7 +143,7 @@ Exit codes:
 
 ## RC feedback
 
-clet is in **release candidate** status ([milestone tracker](https://github.com/gui-cs/clet/issues/33)). If something doesn't work, looks wrong, or is just confusing, **[file an issue](https://github.com/gui-cs/clet/issues/new)**. Include:
+clet is in **release candidate** status ([milestone tracker](https://github.com/tui-cs/clet/issues/33)). If something doesn't work, looks wrong, or is just confusing, **[file an issue](https://github.com/tui-cs/clet/issues/new)**. Include:
 
 - `clet --version` output (e.g. `1.0.0-rc.3 (Terminal.Gui 2.0.2-develop.37)`).
 - Your terminal + OS (e.g. "Windows Terminal on Windows 11", "iTerm2 on macOS 15").
@@ -228,7 +228,7 @@ Here's `clet color` with the Anders theme applied:
 
 ![clet color with Anders theme](./docs/images/clet-color.gif)
 
-All clets render with the `Base` color scheme, so customizing `Base` controls every clet's appearance. See the [Terminal.Gui Configuration docs](https://gui-cs.github.io/Terminal.Gui/docs/configuration.html) for the full schema.
+All clets render with the `Base` color scheme, so customizing `Base` controls every clet's appearance. See the [Terminal.Gui Configuration docs](https://tui-cs.github.io/Terminal.Gui/docs/configuration.html) for the full schema.
 
 ### Q: Key bindings?
 
@@ -256,11 +256,11 @@ Releases from `main` publish prerelease packages to NuGet (versioned `1.x.y-rc.N
 
 ### Q: How do I report a bug or give feedback?
 
-[File an issue](https://github.com/gui-cs/clet/issues/new). That's the only feedback channel — no Discussions, no forum. See the [RC feedback](#rc-feedback) section above for what to include.
+[File an issue](https://github.com/tui-cs/clet/issues/new). That's the only feedback channel — no Discussions, no forum. See the [RC feedback](#rc-feedback) section above for what to include.
 
 ## Native binaries install
 
-Every [GitHub release](https://github.com/gui-cs/clet/releases) ships standalone NativeAOT binaries for the three primary platforms. **No .NET runtime required** — single-file executable, ~20 MB, cold-start in tens of milliseconds.
+Every [GitHub release](https://github.com/tui-cs/clet/releases) ships standalone NativeAOT binaries for the three primary platforms. **No .NET runtime required** — single-file executable, ~20 MB, cold-start in tens of milliseconds.
 
 | Platform | Asset |
 |---|---|
@@ -273,7 +273,7 @@ Every [GitHub release](https://github.com/gui-cs/clet/releases) ships standalone
 **macOS (Apple Silicon):**
 ```sh
 # Replace <version> with the release tag, e.g. 1.0.0-develop.41
-curl -LO https://github.com/gui-cs/clet/releases/latest/download/clet-<version>-osx-arm64.tar.gz
+curl -LO https://github.com/tui-cs/clet/releases/latest/download/clet-<version>-osx-arm64.tar.gz
 tar -xzf clet-<version>-osx-arm64.tar.gz
 xattr -d com.apple.quarantine ./clet  # clear Gatekeeper quarantine
 sudo mv clet /usr/local/bin/
@@ -282,7 +282,7 @@ clet --version
 
 **Linux x64:**
 ```sh
-curl -LO https://github.com/gui-cs/clet/releases/latest/download/clet-<version>-linux-x64.tar.gz
+curl -LO https://github.com/tui-cs/clet/releases/latest/download/clet-<version>-linux-x64.tar.gz
 tar -xzf clet-<version>-linux-x64.tar.gz
 chmod +x ./clet
 sudo mv clet /usr/local/bin/
@@ -292,7 +292,7 @@ clet --version
 **Windows x64 (PowerShell):**
 ```powershell
 # Replace <version> with the release tag
-Invoke-WebRequest -Uri "https://github.com/gui-cs/clet/releases/latest/download/clet-<version>-win-x64.zip" -OutFile clet.zip
+Invoke-WebRequest -Uri "https://github.com/tui-cs/clet/releases/latest/download/clet-<version>-win-x64.zip" -OutFile clet.zip
 Expand-Archive clet.zip -DestinationPath $env:USERPROFILE\bin\clet
 # Add $env:USERPROFILE\bin\clet to your PATH, then:
 clet --version

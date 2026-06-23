@@ -35,7 +35,7 @@ public class ConfigCletIntegrationTests
 
         await File.WriteAllTextAsync (configPath, """
             {
-              "$schema": "https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
+              "$schema": "https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
               "Theme": "Andersx"
             }
             """, TestContext.Current.CancellationToken);
@@ -63,7 +63,7 @@ public class ConfigCletIntegrationTests
 
         await File.WriteAllTextAsync (configPath, """
             {
-              "$schema": "https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
+              "$schema": "https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
               "Theme": "Andersx"
             }
             """, TestContext.Current.CancellationToken);

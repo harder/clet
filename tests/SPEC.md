@@ -2,7 +2,7 @@
 
 Companion to [`specs/clet-spec.md`](../specs/clet-spec.md). This doc lives next to the test projects so it stays in sync when test layout or harness shape changes. The main spec defers to this one for everything in `tests/`.
 
-Nine test layers, each with a clear "what does this catch" purpose. All test code lives in `tests/<project>/`. `Markdown` View rendering quality is tested in TG core, not here ([gui-cs/Terminal.Gui#5156](https://github.com/gui-cs/Terminal.Gui/issues/5156)).
+Nine test layers, each with a clear "what does this catch" purpose. All test code lives in `tests/<project>/`. `Markdown` View rendering quality is tested in TG core, not here ([tui-cs/Terminal.Gui#5156](https://github.com/tui-cs/Terminal.Gui/issues/5156)).
 
 ## 1. When each layer runs (tier matrix)
 
@@ -62,7 +62,7 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 
 **What this catches:** Races and ordering bugs in `ConfigurationManager` (CM) state — a process-global singleton with one-time `[ConfigurationProperty]` discovery. CM tests that run in a parallel assembly can observe different discovery outcomes depending on which collection enables CM first.
 
-**Why a separate project:** `DisableParallelization = true` on a collection only stops intra-/cross-collection concurrency *within* one assembly — it doesn't prevent a *different* parallel collection in the same assembly from enabling CM before the configuration tests run. The only robust isolation (used by Terminal.Gui itself and the sibling `gui-cs/Editor` repo) is a separate assembly with `parallelizeAssembly: false` and `parallelizeTestCollections: false` in `xunit.runner.json`.
+**Why a separate project:** `DisableParallelization = true` on a collection only stops intra-/cross-collection concurrency *within* one assembly — it doesn't prevent a *different* parallel collection in the same assembly from enabling CM before the configuration tests run. The only robust isolation (used by Terminal.Gui itself and the sibling `tui-cs/Editor` repo) is a separate assembly with `parallelizeAssembly: false` and `parallelizeTestCollections: false` in `xunit.runner.json`.
 
 **Cases:**
 - `EditorSettings`: ManagedKeys completeness, CM discovery, Save round-trips (JSONC comments, existing keys, default template, key updates), CM Load/Apply restores values.
@@ -119,7 +119,7 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 
 **Parallelization:** Disabled at the assembly level. Process-level cases share the test-copied `clet` output and must not race multiple child processes over the same output artifacts. A module initializer sets `DisableRealDriverIO=1` and `Console.In = TextReader.Null` in the smoke-test host, and `CletProcess` passes `DisableRealDriverIO` to spawned `clet` children. Child stdin is still explicitly redirected only for smoke cases that pass `stdin`.
 
-**Cases:** Identical to the release-pipeline smoke matrix in [`specs/clet-spec.md` §5.3](../specs/clet-spec.md#53-smoke-test-gate-p0-release-fails-closed) (every clet boots, returns valid JSON, exits with the correct code). Run on every PR to `gui-cs/clet`, every TG-triggered release build, and nightly against the latest TG develop branch.
+**Cases:** Identical to the release-pipeline smoke matrix in [`specs/clet-spec.md` §5.3](../specs/clet-spec.md#53-smoke-test-gate-p0-release-fails-closed) (every clet boots, returns valid JSON, exits with the correct code). Run on every PR to `tui-cs/clet`, every TG-triggered release build, and nightly against the latest TG develop branch.
 
 **Tooling:** TUIcast in deterministic-script mode (same driver as §5.3 in the main spec). The xUnit fixture shells out to TUIcast with a per-clet keystroke script, captures the resulting JSON from the spawned `clet` process's stdout, and asserts on exit code + envelope shape. Using the same driver as the release gate means a green CI run is byte-equivalent evidence that the release gate will be green; we do not maintain two parallel smoke harnesses.
 
@@ -155,17 +155,17 @@ The legitimate worry that in-process injection drifts from AOT behavior is addre
 | Mouse click      |       ☐        |   ☐    |        ☐         |       ☐        |
 | Inline restore   |       ☐        |   ☐    |        ☐         |       ☐        |
 
-Run before every minor release (v1.0, v1.1, ...). Captured in a release checklist issue ([#23](https://github.com/gui-cs/clet/issues/23) tracks the first pass for v0.5). v0.5 milestone gate.
+Run before every minor release (v1.0, v1.1, ...). Captured in a release checklist issue ([#23](https://github.com/tui-cs/clet/issues/23) tracks the first pass for v0.5). v0.5 milestone gate.
 
 ### 2.7 AOT publish tests
 
-**What this catches:** Trim warnings, runtime AOT failures, regressions in AOT-compatibility of TG core. With no separate AOT audit (the original §3 entry was dropped because TG core already tracks AOT work), these tests are the primary discovery mechanism for AOT issues; failures here are filed as issues against `gui-cs/Terminal.Gui` with a minimal repro.
+**What this catches:** Trim warnings, runtime AOT failures, regressions in AOT-compatibility of TG core. With no separate AOT audit (the original §3 entry was dropped because TG core already tracks AOT work), these tests are the primary discovery mechanism for AOT issues; failures here are filed as issues against `tui-cs/Terminal.Gui` with a minimal repro.
 
 **Cases:**
-- CI publishes the AOT binary on every PR to `gui-cs/clet` and on the nightly TG-develop run.
+- CI publishes the AOT binary on every PR to `tui-cs/clet` and on the nightly TG-develop run.
 - Zero trim warnings tolerated; warnings fail the build.
 - Smoke tests (§2.4) run against the AOT binary, not just the JIT'd debug build.
-- AOT failures discovered during `gui-cs/clet` builds are filed against `gui-cs/Terminal.Gui` with a minimal repro.
+- AOT failures discovered during `tui-cs/clet` builds are filed against `tui-cs/Terminal.Gui` with a minimal repro.
 
 ### 2.8 Performance tests (`Clet.PerfTests`)
 
