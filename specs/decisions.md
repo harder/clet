@@ -52,7 +52,7 @@ Format: `## D-NNN: <short title> (status)`. Status is one of `Active`, `Supersed
 
 **Status.** Superseded by [D-021](#d-021-auto-discovered-clets-any-ivaluet-view-just-works-deferred-to-v2-active). The "revisit before v0.3 GA" trigger fired with the answer: don't bother in v1.x. The auto-discovery question is broader than just the source generator; D-021 captures the full design exploration and the deferral to v2.
 
-**Pointers.** `src/Clet/Registry/BuiltInClets.cs`, `src/Clet.SourceGen/Placeholder.cs`. Bar-raise [#BR-11 in the bar-raise backlog issue](https://github.com/gui-cs/clet/issues/11) ticked.
+**Pointers.** `src/Clet/Registry/BuiltInClets.cs`, `src/Clet.SourceGen/Placeholder.cs`. Bar-raise [#BR-11 in the bar-raise backlog issue](https://github.com/tui-cs/clet/issues/11) ticked.
 
 ---
 
@@ -88,7 +88,7 @@ Format: `## D-NNN: <short title> (status)`. Status is one of `Active`, `Supersed
 
 **Status.** Active. TUIcast is not yet wired; the `[Fact(Skip=...)]` test and `tests/Clet.SmokeTests/scripts/select.txt` placeholder are in place. All 14 input clets have landed but the keystroke-driven smoke cases still await TUIcast integration.
 
-**Pointers.** [Issue #9](https://github.com/gui-cs/clet/issues/9), `tests/Clet.SmokeTests/CletSmokeTests.cs` (the deliberately `[Fact(Skip=...)]` test).
+**Pointers.** [Issue #9](https://github.com/tui-cs/clet/issues/9), `tests/Clet.SmokeTests/CletSmokeTests.cs` (the deliberately `[Fact(Skip=...)]` test).
 
 ---
 
@@ -154,7 +154,7 @@ Revisit when download numbers show users hitting Gatekeeper/SmartScreen friction
 
 **Status.** Active. Only three secrets needed at v0.5: `CLET_DISPATCH_PAT`, `NUGET_API_KEY`, `HOMEBREW_TAP_TOKEN`.
 
-**Pointers.** Spec §5.2 (build matrix signing steps), §5.4 (publish steps). `gui-cs/homebrew-tap` repo (must be created before v0.5).
+**Pointers.** Spec §5.2 (build matrix signing steps), §5.4 (publish steps). `tui-cs/homebrew-tap` repo (must be created before v0.5).
 
 ---
 
@@ -234,7 +234,7 @@ The file expansion logic (glob support, file-not-found warnings) is adapted from
 
 ## D-018: ASCII logo wired into `--help` banner and README hero section (Active)
 
-**Context.** [Issue #12 (branding)](https://github.com/gui-cs/clet/issues/12) approved the three-line box-drawing logo and tagline "One binary. Every prompt. JSON out. Go home." and called for the logo to be wired into `clet --help` and the README hero section.
+**Context.** [Issue #12 (branding)](https://github.com/tui-cs/clet/issues/12) approved the three-line box-drawing logo and tagline "One binary. Every prompt. JSON out. Go home." and called for the logo to be wired into `clet --help` and the README hero section.
 
 **Decision.** The ASCII logo is prepended to the Markdown-rendered `--help` output (embedded in `src/Clet/Help/overview.md`), before the tagline/description and usage block. The README `## Press Release` heading is preceded by a full hero section: hero image, code-block logo, tagline, install commands, comparison table, and usage examples (human + AI agent). Spec §4.7 updated to document the `--help` banner format. The logo is also the canonical visual identity for all documentation.
 
@@ -246,7 +246,7 @@ The file expansion logic (glob support, file-not-found warnings) is adapted from
 
 ## D-019: Distribute clet as a single-project `dotnet tool` (mdv pattern) (Active)
 
-**Context.** Spec §5.4 originally hand-waved at "the `Clet.Tool` project (which references `Clet` and packages the build output as a global tool)" — but no such project exists in the repo, and there is no need for one. The sibling [`gui-cs/mdv`](https://github.com/gui-cs/mdv) viewer ships as a single-csproj global tool: `<PackAsTool>true</PackAsTool>` + `<ToolCommandName>mdv</ToolCommandName>` + `<PackageId>Terminal.Gui.mdv</PackageId>` directly on the executable's csproj. Install command is `dotnet tool install -g Terminal.Gui.mdv`. clet should adopt the same pattern: a single csproj that produces both the AOT single-file binary (for Homebrew/WinGet) and a `dotnet tool` package (for the cross-platform `dotnet tool install` path).
+**Context.** Spec §5.4 originally hand-waved at "the `Clet.Tool` project (which references `Clet` and packages the build output as a global tool)" — but no such project exists in the repo, and there is no need for one. The sibling [`tui-cs/mdv`](https://github.com/tui-cs/mdv) viewer ships as a single-csproj global tool: `<PackAsTool>true</PackAsTool>` + `<ToolCommandName>mdv</ToolCommandName>` + `<PackageId>Terminal.Gui.mdv</PackageId>` directly on the executable's csproj. Install command is `dotnet tool install -g Terminal.Gui.mdv`. clet should adopt the same pattern: a single csproj that produces both the AOT single-file binary (for Homebrew/WinGet) and a `dotnet tool` package (for the cross-platform `dotnet tool install` path).
 
 **Decision.** Add `PackAsTool`, `ToolCommandName=clet`, and a `PackageId` directly to `src/Clet/Clet.csproj`. Pack the README and LICENSE into the NuGet package via `<None Include="..." Pack="true" PackagePath="/" />`. No separate `Clet.Tool` project. The AOT binary continues to be produced by `dotnet publish -c Release` against the same csproj — `PackAsTool` only affects `dotnet pack` output, not `dotnet publish`. End users on any platform with the .NET SDK can install via `dotnet tool install -g <package-id>` and invoke `clet` from PATH. *(The original choice of `PackageId=Terminal.Gui.clet` to match the `Terminal.Gui.mdv` precedent has been superseded by [D-024](#d-024-package-id-is-bare-clet-active) — the bare `clet` id is now used.)*
 
@@ -254,13 +254,13 @@ The file expansion logic (glob support, file-not-found warnings) is adapted from
 
 **How to apply:** §5.4 ".NET tool (NuGet)" describes this packaging in concrete terms (properties to set, exact `dotnet pack` / `dotnet tool install` commands). The current install hint is `dotnet tool install -g clet` (per D-024). v0.5 milestone exit criterion (§7) requires `dotnet pack` + local `dotnet tool install` to work end-to-end before the channels-live exit criteria for v1.0 GA.
 
-**Pointers.** Spec §5.4, §7 v0.5 row, §10 step 10. README "Install" section. The `mdv.csproj` reference: <https://github.com/gui-cs/mdv/blob/main/mdv.csproj>.
+**Pointers.** Spec §5.4, §7 v0.5 row, §10 step 10. README "Install" section. The `mdv.csproj` reference: <https://github.com/tui-cs/mdv/blob/main/mdv.csproj>.
 
 ---
 
 ## D-020: Continuous-release loop on TG develop + release; channel from version suffix (Active — point 4 superseded by D-022)
 
-**Context.** Spec §5.1 originally fired clet's release workflow on a single trigger: `repository_dispatch type=tg-released` from a TG release tag. That left the §8 develop-pin risk wide open — clet had to hand-pin `Terminal.Gui Version="2.0.2-develop.NN"` and bump manually whenever TG develop changed. It also left clet silent during the long stretches between TG releases, even when develop carries shippable improvements. We want clet to track TG continuously (every develop NuGet publish drives a clet prerelease) **and** still produce stable artifacts on TG release tags (Homebrew, WinGet, NuGet "latest"). See [issue #30](https://github.com/gui-cs/clet/issues/30) for the kicked-off plan.
+**Context.** Spec §5.1 originally fired clet's release workflow on a single trigger: `repository_dispatch type=tg-released` from a TG release tag. That left the §8 develop-pin risk wide open — clet had to hand-pin `Terminal.Gui Version="2.0.2-develop.NN"` and bump manually whenever TG develop changed. It also left clet silent during the long stretches between TG releases, even when develop carries shippable improvements. We want clet to track TG continuously (every develop NuGet publish drives a clet prerelease) **and** still produce stable artifacts on TG release tags (Homebrew, WinGet, NuGet "latest"). See [issue #30](https://github.com/tui-cs/clet/issues/30) for the kicked-off plan.
 
 **Decision.**
 
@@ -274,7 +274,7 @@ The file expansion logic (glob support, file-not-found warnings) is adapted from
 
 **How to apply:** Spec §5.1, §5.4, §5.5, §5.6, §7 v0.5 row, and §8 risks all updated in the same PR. The §8 develop-pin risk row is **resolved**; a new "develop publish volume" row is added in its place. Failure handling distinguishes channel: release failures page, develop failures don't (next develop supersedes within hours; spam-paging on every flake would be untenable).
 
-**Status.** Active. Pending TG-side work: a `notify-clet.yml` workflow on `gui-cs/Terminal.Gui` that fires both dispatches with a `CLET_DISPATCH_PAT` (tracked as a separate TG-side issue).
+**Status.** Active. Pending TG-side work: a `notify-clet.yml` workflow on `tui-cs/Terminal.Gui` that fires both dispatches with a `CLET_DISPATCH_PAT` (tracked as a separate TG-side issue).
 
 **Pointers.** Spec §5.1, §5.4, §5.5, §5.6, §7, §8. `src/Clet/Clet.csproj` (`<TerminalGuiVersion>` + variable PackageReference). `.github/workflows/release.yml` (renamed from `release-on-tg.yml` per D-022).
 
@@ -288,11 +288,11 @@ The file expansion logic (glob support, file-not-found warnings) is adapted from
 
 **Why:** 15 clets at ~50–150 lines each ≈ 1500 LOC of mostly-metadata is not the bottleneck. Cross-cutting concerns (`--title`, scheme, link safety, exit codes) already live above the per-clet layer; auto-discovery wouldn't change that. The leverage of full auto-discovery only kicks in if a long tail of new TG Views or third-party Views want shell exposure post-v1.0 — both are explicitly out of scope today (§1, plugin loading exclusion in Appendix A). And introducing a `[Shellable]` attribute on TG core softens the §2 "nothing in TG core knows about clets" decision; that's a TG-side opinion-shift we shouldn't ask for without the v2 third-party-clets driver behind it.
 
-**How to apply:** Spec §11 is the canonical exploration. D-004 (source generator deferred) is **superseded by this entry** — D-004's "Pending — revisit before v0.3 GA" is now closed: the answer is "don't bother in v1.x." Bar-raise [#BR-11](https://github.com/gui-cs/clet/issues/11) ticked. v1.x refinements that pay down clet boilerplate without locking in a TG-side commitment (Options-declaration builder helper, generated §4.3.2 wire-format table, contract test for wire-format conformance) are listed in §11.5 and remain candidates for separate PRs.
+**How to apply:** Spec §11 is the canonical exploration. D-004 (source generator deferred) is **superseded by this entry** — D-004's "Pending — revisit before v0.3 GA" is now closed: the answer is "don't bother in v1.x." Bar-raise [#BR-11](https://github.com/tui-cs/clet/issues/11) ticked. v1.x refinements that pay down clet boilerplate without locking in a TG-side commitment (Options-declaration builder helper, generated §4.3.2 wire-format table, contract test for wire-format conformance) are listed in §11.5 and remain candidates for separate PRs.
 
 **Status.** Active. Supersedes D-004.
 
-**Pointers.** Spec §11 (full exploration), §11.5 (recommendation + v1.x refinements), §11.6 (open questions for v2). `src/Clet.SourceGen/` retained as placeholder. `src/Clet/Registry/BuiltInClets.cs` continues as hand-written. Bar-raise issue [#11](https://github.com/gui-cs/clet/issues/11) #BR-11.
+**Pointers.** Spec §11 (full exploration), §11.5 (recommendation + v1.x refinements), §11.6 (open questions for v2). `src/Clet.SourceGen/` retained as placeholder. `src/Clet/Registry/BuiltInClets.cs` continues as hand-written. Bar-raise issue [#11](https://github.com/tui-cs/clet/issues/11) #BR-11.
 
 ---
 
@@ -335,7 +335,7 @@ Both channels tag every build (needed for auto-increment). Both publish to NuGet
 
 ## D-024: Package id is bare `clet` (Active)
 
-**Context.** [D-019](#d-019-distribute-clet-as-a-single-project-dotnet-tool-mdv-pattern-active) chose `PackageId=Terminal.Gui.clet` to mirror the [`gui-cs/mdv`](https://github.com/gui-cs/mdv) `Terminal.Gui.mdv` precedent and to keep the gui-cs origin obvious in NuGet search. We've since confirmed the bare `clet` id is unclaimed on nuget.org (verified via the flat-container API and the search index, both empty as of 2026-05-06), and the maintainer has scoped a NuGet API key to a single package id (`clet`) for tighter blast radius. The shorter id matches the tool command name (`dotnet tool install -g clet` is already what users type — and now what they search for too).
+**Context.** [D-019](#d-019-distribute-clet-as-a-single-project-dotnet-tool-mdv-pattern-active) chose `PackageId=Terminal.Gui.clet` to mirror the [`tui-cs/mdv`](https://github.com/tui-cs/mdv) `Terminal.Gui.mdv` precedent and to keep the tui-cs origin obvious in NuGet search. We've since confirmed the bare `clet` id is unclaimed on nuget.org (verified via the flat-container API and the search index, both empty as of 2026-05-06), and the maintainer has scoped a NuGet API key to a single package id (`clet`) for tighter blast radius. The shorter id matches the tool command name (`dotnet tool install -g clet` is already what users type — and now what they search for too).
 
 **Decision.** Switch `<PackageId>` in `src/Clet/Clet.csproj` from `Terminal.Gui.clet` to `clet`. Install command becomes `dotnet tool install -g clet` (and `--prerelease` for the develop channel). Existing `Terminal.Gui.clet.*` versions on nuget.org are unlisted by the maintainer; the package id is freed but the historical versions remain restorable via explicit `--version` for anyone pinned to them (NuGet immutability).
 
@@ -399,7 +399,7 @@ Both channels tag every build (needed for auto-increment). Both publish to NuGet
 
 ## D-028: `--output <path>` writes result to a file instead of stdout (Active)
 
-**Context.** Terminal.Gui renders to stdout. Any form of stdout redirection (`$()`, `|`, `>`) hides the TUI — the user sees nothing (gui-cs/Terminal.Gui#5207). Until TG supports rendering to `/dev/tty` when stdout is redirected, clet needs a workaround to let scripts capture the result while keeping the TUI visible.
+**Context.** Terminal.Gui renders to stdout. Any form of stdout redirection (`$()`, `|`, `>`) hides the TUI — the user sees nothing (tui-cs/Terminal.Gui#5207). Until TG supports rendering to `/dev/tty` when stdout is redirected, clet needs a workaround to let scripts capture the result while keeping the TUI visible.
 
 **Decision.** Add `--output <path>` / `-o <path>` as a built-in CLI flag. When set, `OutputFormatter` writes successful results (plain text or JSON) to the specified file path instead of stdout. The file is created with non-overwriting semantics; existing paths are refused rather than truncated. Non-success results are not written to the output file and are emitted through the normal stdout/stderr paths. stdout remains fully available for TUI rendering. If the file cannot be written, an error is emitted to stderr and the process exits with code 2 (usage error).
 
@@ -456,7 +456,7 @@ This is clet's own defense. TG's cell model is treated as defense-in-depth, not 
 
 ## D-032: Replace `range` clet with `linear-range` backed by Terminal.Gui's `LinearRange<T>` (Active, supersedes D-011)
 
-**Context.** The original `range` clet wrapped a hand-rolled `RangeView` (`NumericUpDown<int>` × 2 + a `..` label) and emitted `{"low": <int>, "high": <int>}` per spec §4.3.2. It worked, but the UX was poor — two independent spinners with no visual sense of the range relationship — and it duplicated functionality TG shipped via [Terminal.Gui PR #5204](https://github.com/gui-cs/Terminal.Gui/pull/5204) (the `LinearRange<T>` `IValue` refactor).
+**Context.** The original `range` clet wrapped a hand-rolled `RangeView` (`NumericUpDown<int>` × 2 + a `..` label) and emitted `{"low": <int>, "high": <int>}` per spec §4.3.2. It worked, but the UX was poor — two independent spinners with no visual sense of the range relationship — and it duplicated functionality TG shipped via [Terminal.Gui PR #5204](https://github.com/tui-cs/Terminal.Gui/pull/5204) (the `LinearRange<T>` `IValue` refactor).
 
 **Decision.** Delete `RangeClet`, `RangeView`, and their tests. Add `LinearRangeClet` (alias `linear-range`) backed by the `LinearRange<T>` view family, with three modes controlled by `--mode single|multi|range` (default `single`). Wire format changes from `{low, high}` to a mode-dependent JSON object:
 
@@ -468,7 +468,7 @@ Additional options: `--orientation horizontal|vertical`, `--range-kind closed|le
 
 **Status.** Active. Supersedes [D-011](#d-011-range-is-integer-only-at-v03-active).
 
-**Pointers.** `src/Clet/Clets/Input/LinearRangeClet.cs`, spec §4.3.2, README, [Terminal.Gui PR #5204](https://github.com/gui-cs/Terminal.Gui/pull/5204).
+**Pointers.** `src/Clet/Clets/Input/LinearRangeClet.cs`, spec §4.3.2, README, [Terminal.Gui PR #5204](https://github.com/tui-cs/Terminal.Gui/pull/5204).
 
 ---
 

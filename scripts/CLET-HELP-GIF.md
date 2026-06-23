@@ -4,7 +4,7 @@ Produces `docs/images/clet-help.gif` — a high-quality animated GIF demonstrati
 
 ## Prerequisites
 
-- [tuirec](https://github.com/gui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/gui-cs/tuirec/cmd/tuirec@latest`)
+- [tuirec](https://github.com/tui-cs/tuirec) v0.3.4+ on PATH (`go install github.com/tui-cs/tuirec/cmd/tuirec@latest`)
 - .NET 10 SDK (for building clet)
 - `agg` is auto-downloaded by tuirec on first use
 
@@ -79,4 +79,4 @@ Copy-Item recording.gif ./docs/images/clet-help.gif -Force
 3. **Viewport not scrolling**: Use PageDown/PageUp. CursorDown does NOT scroll — it cycles focus between links.
 4. **Recording too long**: Reduce `wait:` values. The demo should be ~9s at keystroke-delay 80.
 5. **GIF too large**: At 100×30, expect ~0.3-0.5 MB. Reduce `--cols` to 80 for a smaller file.
-6. **Viewport starts at bottom**: Known TG bug (gui-cs/Terminal.Gui#5365). The workaround in HelpClet resets viewport on initial render.
+6. **Viewport starts at bottom**: Known TG bug (tui-cs/Terminal.Gui#5365). The workaround in HelpClet resets viewport on initial render.

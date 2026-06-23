@@ -1,4 +1,4 @@
-// Drop-in for gui-cs/clet at: src/Clet/Clets/Input/LinearRangeClet.cs
+// Drop-in for tui-cs/clet at: src/Clet/Clets/Input/LinearRangeClet.cs
 //
 // Targets the LinearRange family that landed in Terminal.Gui via #5204:
 //   - LinearSelector<T>      : LinearRangeViewBase<T, T>                   IValue<T>

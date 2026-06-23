@@ -418,11 +418,11 @@ internal sealed class ConfigClet : IViewerCommand
           //  Terminal.Gui's ConfigurationManager loads this automatically.
           //
           //  Edit and save (Ctrl+S) to apply changes live.
-          //  See: https://gui-cs.github.io/Terminal.Gui/docs/config.html
-          //  Schema: https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json
+          //  See: https://tui-cs.github.io/Terminal.Gui/docs/config.html
+          //  Schema: https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json
           // ═══════════════════════════════════════════════════════════════════════
 
-          "$schema": "https://gui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
+          "$schema": "https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
 
           // ─── General Settings ─────────────────────────────────────────────────
 

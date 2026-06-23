@@ -28,8 +28,8 @@ For View authors, exposure is one line: implement `IValue<T>` for input clets, o
 `clet` is available today via:
 
 ```
-brew install gui-cs/tap/clet      # macOS, Linux
-winget install gui-cs.clet        # Windows 10/11
+brew install tui-cs/tap/clet      # macOS, Linux
+winget install tui-cs.clet        # Windows 10/11
 dotnet tool install -g clet       # any platform with .NET SDK
 ```
 
@@ -106,7 +106,7 @@ Notable absence: `password`. We are deliberately not shipping a password clet in
 Whatever theme is configured in your TG `ConfigurationManager` (system or user) applies to every clet, input and viewer alike. `--theme <name>` overrides per-invocation.
 
 **Q: How is `clet` updated and versioned?**
-The `clet` version always matches the Terminal.Gui version it's built against. When TG cuts a release on `main` (say, TG 2.5.0), GitHub Actions in `gui-cs/clet` rebuilds `clet 2.5.0` against the new TG, signs the artifacts, publishes the Homebrew bottle, submits the WinGet manifest, and pushes the .NET tool package. There is no separate `clet` release cadence to track. Users update through their installer's normal channel: `brew upgrade`, `winget upgrade`, or `dotnet tool update -g clet`. Two cadences would have been one cadence too many.
+The `clet` version always matches the Terminal.Gui version it's built against. When TG cuts a release on `main` (say, TG 2.5.0), GitHub Actions in `tui-cs/clet` rebuilds `clet 2.5.0` against the new TG, signs the artifacts, publishes the Homebrew bottle, submits the WinGet manifest, and pushes the .NET tool package. There is no separate `clet` release cadence to track. Users update through their installer's normal channel: `brew upgrade`, `winget upgrade`, or `dotnet tool update -g clet`. Two cadences would have been one cadence too many.
 
 ### Engineering
 
@@ -115,7 +115,7 @@ The `clet` version always matches the Terminal.Gui version it's built against. W
 **Yes, for `dotnet tool install -g clet`.** That channel exists for plugin authors and CI scenarios.
 
 **Q: NativeAOT, then?**
-Yes for v1.0. Trade accepted: third-party clet *runtime loading* is deferred to v2 (you cannot `Assembly.LoadFrom` into an AOT'd process). The v1.0 clet set, including `md`, is statically linked. View authors with a clet they want shipped open a PR against `gui-cs/clet`.
+Yes for v1.0. Trade accepted: third-party clet *runtime loading* is deferred to v2 (you cannot `Assembly.LoadFrom` into an AOT'd process). The v1.0 clet set, including `md`, is statically linked. View authors with a clet they want shipped open a PR against `tui-cs/clet`.
 
 **Q: Sync or async `IClet`?**
 Async. `Task<CletRunResult<T>> RunAsync(IApplication app, string? initial, CletRunOptions options, CancellationToken ct)` for input clets; the viewer counterpart returns `Task<CletRunResult>` (no `T`).
@@ -136,19 +136,19 @@ Inputs from `--initial`, env vars, and stdin are untrusted. Terminal-escape sani
 Because `cmdlet` was taken, and the other plausible short forms led to places we did not want our brand to lead. `clet` was the shortest survivor of an unusually thorough naming review. We checked.
 
 **Q: What goes in the v0.5 milestone?**
-Naming locked; JSON schema locked; exit-code table locked; inline rendering proven on macOS Terminal, iTerm2, Windows Terminal, GNOME Terminal; v1.0 input and viewer lists locked; `Markdown` View integration verified end-to-end including link safety; threat model published; Homebrew tap and WinGet manifest in working draft form; the gui-cs/clet release workflow proven against a real TG release cut.
+Naming locked; JSON schema locked; exit-code table locked; inline rendering proven on macOS Terminal, iTerm2, Windows Terminal, GNOME Terminal; v1.0 input and viewer lists locked; `Markdown` View integration verified end-to-end including link safety; threat model published; Homebrew tap and WinGet manifest in working draft form; the tui-cs/clet release workflow proven against a real TG release cut.
 
 ### Strategic
 
 **Q: Why does Terminal.Gui own this rather than a separate project?**
-The pitch ("every TG View is a CLI command") depends on the registry and the View ecosystem being the same ecosystem. Splitting it means fragmenting attention. `clet` ships as a single binary in its own repo (`gui-cs/clet`) so its native-installer ops stay out of TG's hair, while the View ecosystem it advertises is unchanged TG. In v1.0 the clet abstractions (`IClet`, `ICletRegistry`, `IViewerClet`) are internal to the binary; v2 may extract them into a published `Clet.Abstractions` NuGet once third-party plugin loading is in scope (today, NativeAOT precludes runtime `Assembly.LoadFrom` into the CLI). TG core changes only on the two narrow seams clet needs and any TG app benefits from (#5157, #5158).
+The pitch ("every TG View is a CLI command") depends on the registry and the View ecosystem being the same ecosystem. Splitting it means fragmenting attention. `clet` ships as a single binary in its own repo (`tui-cs/clet`) so its native-installer ops stay out of TG's hair, while the View ecosystem it advertises is unchanged TG. In v1.0 the clet abstractions (`IClet`, `ICletRegistry`, `IViewerClet`) are internal to the binary; v2 may extract them into a published `Clet.Abstractions` NuGet once third-party plugin loading is in scope (today, NativeAOT precludes runtime `Assembly.LoadFrom` into the CLI). TG core changes only on the two narrow seams clet needs and any TG app benefits from (#5157, #5158).
 
 **Q: What does success look like 12 months after launch?**
 - 1k+ weekly active users (opt-in usage ping).
 - 500+ Homebrew installs and 500+ WinGet installs in the first 90 days.
 - 3+ AI-agent products integrating `clet list --json` for human-in-the-loop elicitation.
 - `clet md` displaces at least one of `glow`/`bat`/`mdcat` in measurable user workflows.
-- At least one PR to `gui-cs/clet` adding a third-party-authored clet, accepted into v1.x.
+- At least one PR to `tui-cs/clet` adding a third-party-authored clet, accepted into v1.x.
 - Zero breaking changes to `IValue<T>` attributable to clet pressure.
 
 **Q: What kills this project?**

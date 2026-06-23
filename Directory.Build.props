@@ -8,9 +8,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
-    <Authors>gui-cs</Authors>
-    <Company>gui-cs</Company>
-    <Copyright>Copyright (c) gui-cs and contributors</Copyright>
+    <Authors>tui-cs</Authors>
+    <Company>tui-cs</Company>
+    <Copyright>Copyright (c) tui-cs and contributors</Copyright>
 
     <!-- Pinned Terminal.Gui version. CI / release workflows can override via -p:TerminalGuiVersion=<x>. -->
     <TerminalGuiVersion Condition="'$(TerminalGuiVersion)' == ''">2.4.5</TerminalGuiVersion>
